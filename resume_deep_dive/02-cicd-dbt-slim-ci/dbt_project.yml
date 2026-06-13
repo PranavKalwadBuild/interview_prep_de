@@ -1,0 +1,30 @@
+name: 'data_mesh_project'
+version: '1.0.0'
+config-version: 2
+
+profile: 'data_mesh'
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+models:
+  data_mesh_project:
+    +persist_docs:
+      relation: true
+      columns: true
+
+    transform:
+      +materialized: view
+      +schema: TRANSFORM
+
+      global:
+        tables:
+          +materialized: incremental
+          +on_schema_change: sync_all_columns
+
+        views:
+          +materialized: view
+
+    published:
+      +materialized: table
+      +schema: PUBLISHED
