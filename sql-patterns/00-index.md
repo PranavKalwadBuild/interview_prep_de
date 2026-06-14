@@ -116,6 +116,16 @@
 |---|---|---|
 | [61-query-plans-explain.md](61-query-plans-explain.md) | EXPLAIN, EXPLAIN ANALYZE, Reading Query Plans — PostgreSQL, Snowflake, BigQuery, Databricks, Redshift | ~450 |
 
+## Part 6 — NoSQL Systems (DE Perspective)
+
+| File | Topic | Lines |
+|---|---|---|
+| [62-nosql-foundations.md](62-nosql-foundations.md) | CAP Theorem, PACELC, ACID vs BASE, 4 Data Models, SQL vs NoSQL Decision, Schema-on-Read vs Write | ~160 |
+| [63-nosql-key-systems.md](63-nosql-key-systems.md) | DynamoDB (partition design, hot partitions, STD, GSI/LSI, Streams, CDC), MongoDB (aggregation pipeline, change streams, Debezium), Cassandra (CQL rules, compaction, pitfalls) | ~220 |
+| [64-nosql-redis-and-ingestion.md](64-nosql-redis-and-ingestion.md) | Redis (data structures, persistence, Streams vs Pub/Sub, DE use cases), Ingestion patterns from DynamoDB/MongoDB/Cassandra/Redis, semi-structured JSON handling | ~220 |
+| [65-nosql-quick-reference.md](65-nosql-quick-reference.md) | Interview Q&A (10 questions), Numbers cheat sheet, PACELC table, Managed services map, Decision tree, Red flags | ~150 |
+
 ---
 
 *Original file: `sql_patterns.md` | Total: ~15,947 lines | Split into 60 files*
+*NoSQL section added 2026-06-13 — files 62–65*
