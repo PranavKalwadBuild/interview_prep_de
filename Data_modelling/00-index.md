@@ -24,11 +24,13 @@ Applicable for data engineering and analytics engineering interviews across fint
 | 12-edge-cases-and-performance.md | Late Arriving Facts, NULL Handling in Dimensional Models, Performance Considerations | 200 |
 | 13-quick-reference.md | Model Selection Decision Tree, Fact/Dimension/SCD Cheat Sheets, Keywords→Pattern Map | 75 |
 
+| [kimball-methodology.md](kimball-methodology.md) | Kimball Methodology Deep Dive — 4-Step Process, Bus Architecture/Matrix, Additive/Semi-additive/Non-additive Measures, Mini-Dimensions, Outrigger Dimensions, Audit Dimensions, Late Arriving Dimensions, Surrogate Key Pipeline, Kimball vs Inmon, Anti-Patterns | ~400 |
+
 ## Reading Order
 
 **New to data modelling:** 01 -> 04 -> 05 -> 06
 
-**Kimball / dimensional modelling deep dive:** 06 -> 07 -> 08 -> 09
+**Kimball / dimensional modelling deep dive:** 06 -> 07 -> 08 -> 09 -> kimball-methodology
 
 **Pipeline design (extraction, load, freshness):** 02 -> 03
 
@@ -36,8 +38,8 @@ Applicable for data engineering and analytics engineering interviews across fint
 
 **Design decisions and traps:** 11 -> 12
 
-**Interview prep — fast review:** 13 -> 09 -> 07 -> 08
+**Interview prep — fast review:** 13 -> 09 -> 07 -> 08 -> kimball-methodology (sections 3 and 10)
 
-**Full end-to-end (first read):** 01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13
+**Full end-to-end (first read):** 01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> kimball-methodology
 
 **Quick lookup:** 13
