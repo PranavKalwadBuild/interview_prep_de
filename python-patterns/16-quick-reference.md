@@ -2,6 +2,10 @@
 
 # Quick Reference
 
+## How to Use This Page
+
+This file is the interview-day recall sheet. It is intentionally dense: the goal is not to teach from scratch, but to trigger the right pattern, warning, or comparison quickly when you need it.
+
 ## Gotcha Table — The Interview Traps
 
 | Gotcha | What breaks | Fix |

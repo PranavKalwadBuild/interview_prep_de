@@ -2,6 +2,12 @@
 
 # OOP Fundamentals
 
+## Why OOP Fundamentals Matter
+
+This file covers the core mechanics of object-oriented programming before the advanced patterns in [07-oop-advanced-patterns.md](07-oop-advanced-patterns.md). The goal is not just to memorize syntax; it is to understand how Python objects model state, behavior, and reuse in real pipeline code.
+
+**Mental model:** classes are blueprints, instances are concrete objects, and methods are behavior attached to those objects. In DE code, that usually means loaders, extractors, config objects, and pipeline steps.
+
 ## Classes and Instances
 
 ```python

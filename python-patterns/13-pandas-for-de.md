@@ -2,6 +2,12 @@
 
 # Pandas for Data Engineering
 
+## Understanding Pandas in DE
+
+Pandas is the in-memory transformation layer for many DE workflows. It is not a replacement for a warehouse or a Spark cluster; it is the tool you reach for when the dataset fits in memory and you want expressive, fast transformations.
+
+**Mental model:** read efficiently, transform vectorially, and write back in a clean shape. Most pandas mistakes come from treating it like a Python loop engine instead of a columnar computation engine.
+
 ## Reading Data
 
 ```python

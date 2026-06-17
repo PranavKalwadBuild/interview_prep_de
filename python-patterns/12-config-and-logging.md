@@ -2,6 +2,23 @@
 
 # Config and Logging
 
+## Understanding Configuration and Logging in Data Engineering
+
+Configuration tells a pipeline what to do; logging tells you what it did. Both need to be structured, explicit, and easy to override per environment.
+
+**Mental model:**
+- Config should be loaded once at startup and validated immediately
+- Secrets should come from the environment or a secret store, not hardcoded
+- Logs should answer three questions: what ran, what happened, and what failed
+
+This matters because many pipeline bugs are not logic bugs; they are observability bugs. If a run fails without enough context, you end up debugging blind.
+
+Good defaults:
+- Static, non-secret settings in YAML or dataclasses
+- Secrets in environment variables or a secret manager
+- Structured logs in JSON for cloud observability tools
+- Logger names per module or task for traceability
+
 ## Config Patterns
 
 ### Environment Variables — The Baseline
@@ -302,13 +319,22 @@ def run_task(**context):
 ## Interview Questions
 
 **Q: Why use `%s` formatting in logging instead of f-strings?**
-Logging uses lazy evaluation — `logger.info("Val: %s", val)` skips string formatting if the INFO level is filtered out. `f"Val: {val}"` always evaluates the f-string, even if the log is never emitted. For expensive computations this is a real performance difference.
+Logging uses lazy evaluation — `logger.info("Val: %s", val)` skips string formatting if the INFO level is filtered out. `f"Val: {val}"` always evaluates the f-string, even if the log is never emitted. For expensive computations this is a real performance difference, and it can be the difference between a cheap debug log and unnecessary overhead in a hot loop.
 
 **Q: Why check `if logger.handlers` before adding a handler?**
-In Airflow or any multi-process/multi-import context, the module may be imported multiple times. Each import without the guard adds another handler, causing each log message to appear N times — common Airflow bug that makes logs unreadable.
+In Airflow or any multi-process/multi-import context, the module may be imported multiple times. Each import without the guard adds another handler, causing each log message to appear N times. That makes logs noisy and hard to trust.
 
 **Q: What's the difference between `logger.error(msg, exc_info=True)` and `logger.exception(msg)`?**
-`logger.exception(msg)` is equivalent to `logger.error(msg, exc_info=True)` — both include the current exception traceback. `exception` is shorthand; use it inside `except` blocks.
+`logger.exception(msg)` is equivalent to `logger.error(msg, exc_info=True)` — both include the current exception traceback. `exception` is shorthand and is usually the clearer choice inside `except` blocks.
 
 **Q: How do you handle config in a production pipeline — env vars, YAML, or both?**
-Both: YAML for static config (table lists, schema mappings, batch sizes), env vars for environment-specific and secret values (passwords, bucket names, API keys). Secrets never in YAML files committed to git. Load YAML at startup, override with env vars.
+Both: YAML for static config (table lists, schema mappings, batch sizes), env vars for environment-specific and secret values (passwords, bucket names, API keys). Secrets should not live in version-controlled YAML. Load YAML at startup, override with env vars, validate once, and fail fast if required values are missing.
+
+**Q: Why prefer structured JSON logs in cloud environments?**
+Because systems like CloudWatch, Datadog, and ELK can index fields from JSON logs directly. Plain text is fine for local debugging, but JSON logs make filtering, aggregation, and alerting much more reliable at scale.
+
+**Q: What is the risk of reading config deep inside the code instead of at startup?**
+Late config reads make failures appear far from their root cause. If a required env var is missing, it is better to fail at startup than two hours into a run. Startup validation gives faster feedback and reduces wasted compute.
+
+**Q: When would you use a `LoggerAdapter`?**
+Use it when you want to inject shared contextual fields like `run_id`, `pipeline`, or `table` into every log record without repeating them in every log call. It is a clean way to keep logs correlated across a pipeline run.

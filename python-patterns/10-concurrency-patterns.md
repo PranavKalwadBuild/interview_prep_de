@@ -2,6 +2,23 @@
 
 # Concurrency Patterns
 
+## Understanding Concurrency in Data Engineering
+
+Concurrency is about making progress on multiple tasks by overlapping work. In DE, that usually means waiting on network, disk, or external services while doing useful work elsewhere.
+
+**Mental model:**
+- Threads help when the work is I/O bound and the GIL is released during waits
+- Processes help when the work is CPU bound and you need true parallelism
+- Async helps when the library is async-native and you want lightweight task switching
+
+The wrong concurrency model can make a pipeline slower, more fragile, and harder to debug. The right one depends on the bottleneck, not just the syntax.
+
+Typical DE examples:
+- Downloading 1,000 S3 objects: threads
+- Parsing 1,000 large XML files: processes
+- Hitting an async HTTP API with hundreds of requests: asyncio
+- Small sequential cleanup jobs: no concurrency at all
+
 ## The GIL — What It Means for DE
 
 The **Global Interpreter Lock** allows only one thread to execute Python bytecode at a time. Key implications:
@@ -296,13 +313,19 @@ max_workers = os.cpu_count() - 1 or 1
 ## Interview Questions
 
 **Q: What is the GIL and how does it affect threading in Python?**
-The GIL (Global Interpreter Lock) ensures only one thread runs Python bytecode at a time. For CPU-bound work, threads give no speedup. For I/O-bound work, the GIL releases during system calls, so threads run concurrently. Use `ProcessPoolExecutor` for CPU-bound, `ThreadPoolExecutor` for I/O-bound.
+The GIL (Global Interpreter Lock) ensures only one thread runs Python bytecode at a time. For CPU-bound work, threads give no speedup because the interpreter is still serialized. For I/O-bound work, the GIL is released during system calls, so threads can overlap waiting on network or disk. Use `ProcessPoolExecutor` for CPU-bound work and `ThreadPoolExecutor` for I/O-bound work.
 
 **Q: `ThreadPoolExecutor.map` vs `submit` + `as_completed` — when to use each?**
-`map` is simpler, preserves input order, raises on the first exception. `as_completed` processes results as they finish (order depends on completion time), allows per-task error handling. Use `as_completed` when tasks have variable duration or you need fault tolerance.
+`map` is simpler, preserves input order, and raises when the mapped iteration completes. `as_completed` gives you futures in completion order, which is better when tasks have variable duration or you need per-task error handling and progress reporting. In a pipeline, `as_completed` is often better for observability; `map` is fine for straightforward fan-out/fan-in.
 
 **Q: Why can't you pass a lambda to `ProcessPoolExecutor.map`?**
-`ProcessPoolExecutor` pickles the function to send it to worker processes. Lambdas and locally defined closures can't be pickled. Use top-level functions or `functools.partial`.
+The `ProcessPoolExecutor` pickles the function to send it to worker processes. Lambdas and locally defined closures usually can't be pickled because they do not have a stable module-level reference. Use top-level functions or `functools.partial` instead.
 
 **Q: When would you use `asyncio` instead of `ThreadPoolExecutor` for DE?**
-When your I/O library is async-native (aiohttp, aiobotocore, asyncpg) and you need very high concurrency (hundreds of concurrent requests) with minimal overhead. `ThreadPoolExecutor` is simpler and works for moderate concurrency with synchronous libraries.
+When your I/O library is async-native (aiohttp, aiobotocore, asyncpg) and you need very high concurrency with minimal thread overhead. `ThreadPoolExecutor` is simpler and works well for moderate concurrency with synchronous libraries. Async is a better fit when the bottleneck is waiting on many sockets and the ecosystem already supports coroutines.
+
+**Q: How do you choose between threads, processes, async, and a plain loop?**
+Start with the simplest thing that can work. Use a plain loop if the job is small or sequential. Use threads for I/O-bound work with synchronous libraries. Use processes for CPU-heavy transformation steps. Use async only when the libraries are async-native and the concurrency level is high enough to justify the mental overhead.
+
+**Q: What is a common concurrency mistake in pipelines?**
+Using concurrency where the bottleneck is not concurrency-related. For example, adding 50 threads to a CPU-heavy Pandas transformation usually just adds context-switch overhead. Measure first, then choose the model based on the bottleneck.

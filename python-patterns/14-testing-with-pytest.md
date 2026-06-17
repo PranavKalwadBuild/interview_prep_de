@@ -2,6 +2,12 @@
 
 # Testing with pytest
 
+## Why pytest Matters for Data Engineering
+
+Testing is how you keep pipelines trustworthy as they evolve. In DE, tests are not just about correctness of a function; they are about schema stability, data contracts, external service handling, and reproducible environments.
+
+**Mental model:** test small behavior in isolation, then build higher-level tests that check contracts and integration points. Use fixtures to control state and mocks or moto to replace expensive external systems.
+
 ## Core pytest Syntax
 
 ```python

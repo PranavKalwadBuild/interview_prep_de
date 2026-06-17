@@ -2,6 +2,24 @@
 
 # File and IO Patterns
 
+## Understanding File I/O in Data Engineering
+
+File I/O is where data pipelines first touch the outside world. The core question is always the same: do you need the whole file in memory, or can you stream it in pieces?
+
+**Mental model:** treat files as streams, not blobs, unless you have a strong reason to materialize them. Streaming keeps memory flat, makes large-file processing possible, and lets downstream steps start before the upstream source is finished.
+
+Why this matters in DE:
+- Large raw files can be hundreds of GB
+- Many pipeline failures come from accidental full-file reads
+- Chunking lets you bulk load data in controlled batches
+- Atomic writes and temp files protect concurrent readers from partial output
+
+Common rule of thumb:
+- Use `Path.read_text()` or `json.load()` only for small files
+- Use file iteration or chunked generators for anything large or unbounded
+- Use `newline=""` for CSV to avoid platform-specific newline bugs
+- Use atomic writes when another process may read the output
+
 ## pathlib — The Modern Way
 
 ```python
@@ -303,16 +321,25 @@ def files_modified_after(directory, pattern, cutoff_ts):
 ## Interview Questions
 
 **Q: Why use `pathlib.Path` over `os.path`?**
-`pathlib` is object-oriented, more readable, and cross-platform. Path joining with `/` operator avoids string concatenation bugs. Methods like `.glob()`, `.mkdir(parents=True)`, `.read_text()` are more ergonomic than `os.path` equivalents.
+`pathlib` is object-oriented, more readable, and cross-platform. Path joining with `/` avoids string concatenation bugs, and methods like `.glob()`, `.mkdir(parents=True)`, and `.read_text()` are easier to compose than `os.path` calls. In interviews, the key point is that `pathlib` improves clarity without changing the underlying file behavior.
 
 **Q: How do you read a 10 GB CSV file in Python without running out of memory?**
-Open the file as an iterator (file objects iterate line by line in O(1) memory), or use `csv.DictReader` which is lazy. Process rows in batches, yield them as chunks from a generator. Never call `f.readlines()` or `list(reader)` on large files.
+Open the file as an iterator (file objects iterate line by line in O(1) memory), or use `csv.DictReader` which is lazy. Process rows in batches, yield them as chunks from a generator, and load each batch into the next stage immediately. Never call `f.readlines()` or `list(reader)` on large files because that materializes the entire dataset.
+
+**Q: What is the difference between `read()`, `readlines()`, and iterating line-by-line?**
+`read()` loads the entire file into memory. `readlines()` also loads the whole file, but returns a list of lines. Iterating line-by-line is the streaming option: it gives you one line at a time and keeps memory bounded. For large logs, CSVs, and JSONL files, iteration is usually the correct choice.
 
 **Q: What's the difference between `json.load()` and `json.loads()`?**
-`json.load(f)` reads from a file object (stream). `json.loads(s)` parses a string. Same for `json.dump` / `json.dumps`.
+`json.load(f)` reads from a file object (stream). `json.loads(s)` parses a string already in memory. The same split applies to `dump`/`dumps`: one targets a file-like object, the other returns a string.
 
 **Q: Why is `yaml.load()` dangerous?**
-Without a `Loader`, it can execute arbitrary Python objects. Always use `yaml.safe_load()` which restricts to primitive Python types.
+Without a `Loader`, it can construct arbitrary Python objects, which is a code-execution risk. Always use `yaml.safe_load()` for untrusted input so you only deserialize primitive YAML structures.
 
 **Q: What is JSONL and when do you use it over JSON?**
-JSON Lines (newline-delimited JSON) stores one JSON object per line. Allows streaming reads (no need to parse the whole file), easy appending, and works well with `grep`, `wc -l`, and Spark's `spark.read.json()`. Standard JSON requires loading the entire file to parse.
+JSON Lines (newline-delimited JSON) stores one JSON object per line. It supports streaming reads, easy appending, and simple line-oriented tooling like `grep`, `wc -l`, and Spark ingestion. Standard JSON requires parsing the entire structure at once, which is less friendly for large append-only datasets.
+
+**Q: Why do atomic writes matter for data pipelines?**
+Without atomic writes, a downstream process might read a partially written file and treat it as valid output. The safe pattern is write to a temp file first, flush and close it, then rename it into place with `os.replace()`. Readers either see the old file or the new file, never a half-written file.
+
+**Q: When should you use chunked reading instead of loading a file directly?**
+Use chunked reading whenever the file size may exceed comfortable memory limits, or when you want to start processing before the full file arrives. Chunked reading is the default for large CSVs, logs, and binary payloads; full materialization is only acceptable when the dataset is known to be small.

@@ -2,6 +2,12 @@
 
 # Performance Patterns
 
+## Understanding Performance Work in DE
+
+Performance tuning starts with measurement, not intuition. In data engineering, the big wins usually come from removing unnecessary Python work, reducing memory churn, and choosing data structures or vectorized operations that move work into compiled code.
+
+**Mental model:** find the bottleneck first, then optimize the narrowest expensive path. Do not trade readability for small gains unless the hot path truly justifies it.
+
 ## Profiling — Measure Before Optimizing
 
 ```python

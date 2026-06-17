@@ -5,6 +5,8 @@
 Reference library for Python as used in DE roles: pipelines, scripting, testing, and system design.
 Each file covers: how it works, how it breaks, how to fix it, and interview angles.
 
+This index is the entry point. Start with the conceptual files for your weak spots, then use the quick reference page when you want fast recall before an interview.
+
 ## Standard Import Block
 
 ```python

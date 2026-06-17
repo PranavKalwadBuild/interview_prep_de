@@ -2,6 +2,19 @@
 
 # DE Scripting: boto3 and requests
 
+## Understanding boto3 and requests in Data Engineering
+
+These libraries are the scripting layer between Python and external systems. In practice, most DE glue code is not complex algorithms; it is careful handling of retries, pagination, streaming, and failure modes.
+
+**Mental model:** treat every remote call as unreliable. Configure retries, set timeouts, use paginators for any API that pages, and stream large payloads instead of loading them wholesale.
+
+What matters most in production:
+- Retries should be intentional, not accidental
+- Pagination must be exhaustive or you'll silently miss data
+- Streaming avoids memory blowups on large downloads
+- Error codes matter more than broad exception types
+- Session reuse matters for performance and connection pooling
+
 ## boto3 Setup
 
 ```python
@@ -337,7 +350,19 @@ def safe_s3_read(bucket, key):
 ## Interview Questions
 
 **Q: Why do you always use `paginator` for `list_objects_v2` in boto3?**
-`list_objects_v2` returns max 1,000 keys per call. Paginators automatically handle `ContinuationToken` and make multiple calls transparently. Missing this means silently processing only the first 1,000 of potentially millions of objects.
+`list_objects_v2` returns a maximum of 1,000 keys per call. Paginators automatically handle `ContinuationToken` and make multiple calls transparently. Missing this means you silently process only the first 1,000 of potentially millions of objects, which is a very common production bug.
+
+**Q: Why configure timeouts and retries on boto3 clients and requests sessions?**
+Because external systems fail in transient ways. Timeouts prevent a stuck call from hanging the pipeline indefinitely, and retries handle temporary throttling or network issues. Without both, one slow or flaky service can stall the entire job.
+
+**Q: When should you stream an HTTP or S3 response instead of loading it fully?**
+Whenever the payload may be large or unbounded. Streaming keeps memory flat and lets you start processing before the transfer completes. It is the default choice for large files, archive downloads, and long-running transfer jobs.
+
+**Q: Why inspect AWS error codes instead of catching `ClientError` blindly?**
+`ClientError` covers many different AWS failures. The response code tells you whether the error is expected and recoverable (`NoSuchKey`, `RequestTimeout`) or fatal (`AccessDenied`). Looking at the code gives you precise behavior instead of a one-size-fits-all catch.
+
+**Q: What is the risk of using `requests.get()` without a session?**
+You lose connection pooling and reuse. A `requests.Session()` reuses TCP connections and is more efficient when making many calls to the same host. It also centralizes headers, auth, and retry configuration.
 
 **Q: What's `mode="adaptive"` in boto3 retry config?**
 Adaptive mode uses token bucket algorithm to slow down when the service returns throttling errors. Standard mode uses fixed exponential backoff. Adaptive is better for APIs that return `429` or `503` under sustained load.
