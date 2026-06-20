@@ -26,14 +26,14 @@ These are not beginner mistakes (SELECT *, missing index). They are production-g
 | File | Topic | Patterns | Lines |
 |---|---|---|---|
 | [01-null-silent-errors.md](01-null-silent-errors.md) | NULL Semantics — NOT IN poisoning, COUNT divergence, AVG bias, COALESCE placement, GROUP BY NULL group, IS DISTINCT FROM | 9 | ~377 |
-| [02-type-coercion-and-casting.md](02-type-coercion-and-casting.md) | Type Coercion and Casting — VARCHAR lexicographic sort, integer division, timestamp timezone shift, DECIMAL JOIN key, CAST truncation, VARCHAR truncation, boolean-int, VARIANT ::INT NULL | 9 | ~314 |
-| [03-window-function-traps.md](03-window-function-traps.md) | Window Function Traps — RANGE frame ties, LAST_VALUE default frame, ROW_NUMBER non-determinism, RANK gaps, LAG IGNORE NULLS offset, partition type mismatch, ROWS + non-unique ORDER BY, RATIO_TO_REPORT NULLs | 8 | ~332 |
+| [02-type-coercion-and-casting.md](02-type-coercion-and-casting.md) | Type Coercion and Casting — VARCHAR lexicographic sort, integer division, timestamp shifts, DECIMAL JOIN key, CAST truncation, boolean-int ambiguity, semi-structured numeric casts | 9 | ~314 |
+| [03-window-function-traps.md](03-window-function-traps.md) | Window Function Traps — RANGE frame ties, LAST_VALUE default frame, ROW_NUMBER non-determinism, RANK gaps, NULL offset handling, partition type mismatch, ROWS + non-unique ORDER BY, ratio denominator traps | 8 | ~332 |
 | [04-join-and-aggregation-fanout.md](04-join-and-aggregation-fanout.md) | Join and Aggregation Fan-out — one-to-many SUM doubling, many-to-many Cartesian, LEFT JOIN WHERE converts to INNER, pre-dedup aggregation, COUNT DISTINCT undercount, chasm trap, accidental CROSS JOIN, self-join pair counting | 8 | ~363 |
 | [05-set-operations-and-ordering.md](05-set-operations-and-ordering.md) | Set Operations and Ordering — UNION ALL positional column swap, UNION silent dedup, EXCEPT NULL equality, ORDER BY in subquery not guaranteed, INTERSECT NULL semantics, DISTINCT ORDER BY portability, EXCEPT branch ORDER BY | 7 | ~272 |
-| [06-datetime-and-timezone.md](06-datetime-and-timezone.md) | Datetime and Timezone — BETWEEN timestamp inclusive endpoint, DST spring-forward gap, CURRENT_TIMESTAMP vs SYSDATE in Snowflake, epoch integer comparison, DATEDIFF boundary counting, DATE_TRUNC week cross-engine, WEEK_START session parameter | 7 | ~282 |
+| [06-datetime-and-timezone.md](06-datetime-and-timezone.md) | Datetime and Timezone — BETWEEN timestamp inclusive endpoint, DST gaps, inconsistent current-time functions, epoch integer comparison, boundary counting, week definitions, session settings | 7 | ~282 |
 | [07-floating-point-and-numeric.md](07-floating-point-and-numeric.md) | Floating Point and Numeric Precision — float equality, accumulating SUM error, NUMERIC vs FLOAT division, ROUND banker's rounding, integer overflow in SUM, DECIMAL division scale, AVG NUMERIC promotion | 7 | ~273 |
 | [08-incremental-and-cdc-patterns.md](08-incremental-and-cdc-patterns.md) | Incremental and CDC Patterns — mutable updated_at watermark, late-arriving data permanent miss, SCD batch window collapses transitions, dbt append_new_columns NULL history, idempotency violation wrong merge key, IS DISTINCT FROM in change detection, partial-column hash dedup collision | 7 | ~340 |
-| [09-platform-specific-snowflake.md](09-platform-specific-snowflake.md) | Platform-Specific: Snowflake — VARIANT ::INT returns NULL for floats, FLATTEN OUTER=>FALSE drops rows, COPY INTO case mismatch NULL, clustering key bypass via function, NTZ vs LTZ JOIN miss, SEARCH OPTIMIZATION not applying, JSON null vs SQL NULL, SECURE VIEW NULL filter | 8 | ~357 |
+| [09-sql-portability-and-semi-structured.md](09-sql-portability-and-semi-structured.md) | SQL Portability and Semi-Structured Data — numeric casts, optional arrays, file-load column mismatches, function-wrapped predicates, timestamp type mismatch, JSON nulls, session settings | 7 | ~357 |
 
 **Total: ~2,910 lines across 9 files, 70 distinct patterns.**
 
@@ -45,7 +45,7 @@ These are not beginner mistakes (SELECT *, missing index). They are production-g
 The single richest source of silent errors. Three-valued logic (TRUE/FALSE/UNKNOWN) means that any predicate, aggregate, or comparison silently changes behavior when NULL is involved. See `01-null-silent-errors.md` and the NULL subsections of `04`, `05`, `08`, `09`.
 
 ### Implicit type conversion
-SQL engines convert types on your behalf rather than fail. The conversion follows engine-specific precedence rules that differ between PostgreSQL, Snowflake, MySQL, and Redshift. See `02-type-coercion-and-casting.md`.
+SQL engines may convert types on your behalf rather than fail. Because precedence and tolerant parsing rules are implementation-defined, ambiguous casts should be made explicit and validated. See `02-type-coercion-and-casting.md`.
 
 ### Frame specification in window functions
 Every window function call should include an explicit frame clause. The default frame (`RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`) is almost never what you want for `LAST_VALUE`, running totals with ties, or any computation requiring the full partition. See `03-window-function-traps.md`.
@@ -65,17 +65,17 @@ Use this list when investigating a "the numbers don't match" incident:
 ```
 □ Are there NULLs in join keys, group-by columns, or aggregate columns?
 □ Does the query use NOT IN with a subquery that could contain NULLs?
-□ Are there implicit type conversions in WHERE clauses or JOIN predicates?
-□ Do all window functions have explicit frame clauses?
-□ Has the cardinality of each JOIN been verified (row count before vs after)?
-□ Are all UNION branches verified for column position alignment?
-□ Is ORDER BY only on the final SELECT (not inside subqueries/CTEs)?
-□ Are timestamp comparisons using range predicates (>= / <) rather than BETWEEN?
-□ Are all timestamps the same type (NTZ vs LTZ) before comparing or joining?
-□ For incremental models: has the watermark been tested against late-arriving data?
-□ For Snowflake VARIANT: are ::INT casts used where the value might be a float?
-□ For Snowflake FLATTEN: is OUTER => TRUE used when parent rows must be preserved?
+□ Are implicit casts present in WHERE clauses or JOIN predicates?
+□ Do all window functions have explicit frame clauses where needed?
+□ Has the cardinality of each JOIN been verified?
+□ Are UNION branches aligned by position and type?
+□ Are timestamp filters written as half-open ranges?
+□ Are all timestamps normalized before joining or comparing?
+□ For incremental models: has late-arriving data been tested?
+□ For semi-structured data: are numeric values validated before casting?
+□ For optional child arrays: are parent rows preserved when no child exists?
 ```
+
 
 ---
 

@@ -17,8 +17,6 @@ Write queries that run faster and cheaper — critical in DE interviews when ask
 
 ### Key Principles & Patterns
 
-```
-
 ```sql
 -- 1. FILTER EARLY: push WHERE conditions to CTEs/subqueries before joining
 -- BAD:
@@ -57,28 +55,10 @@ SELECT user_id, MAX(trade_amount) OVER (PARTITION BY user_id)
 FROM trades;
 
 -- 6. APPROXIMATE COUNTS for large-scale analytics
-SELECT APPROX_COUNT_DISTINCT(user_id) FROM events;  -- BigQuery / Snowflake
 
 -- 7. USE UNION ALL NOT UNION unless dedup is needed
 -- UNION runs a DISTINCT operation — expensive for large sets
 
 -- 8. AVOID CROSS JOINS unless intentional
 -- Accidentally omitting a JOIN condition creates a cartesian product
-```
-
-### Interview-Ready Answers for "How would you optimise this?"
-
-1. **Add partition filter** — ensure `WHERE` clause uses the partition key with range conditions
-2. **Push filters before joins** — smaller tables join faster
-3. **Replace correlated subquery** with window function
-4. **Use approximate functions** for analytics where exact counts aren't needed
-5. **Avoid `DISTINCT` on large result sets** — prefer `GROUP BY` or check if dedup is even needed
-6. **Check for data skew** in GROUP BY keys — some keys may have 10x more rows causing hotspots
-
-> For distributed/scale-level optimisation strategies, see Section 34-30.
-> For reading EXPLAIN / EXPLAIN ANALYZE plans across PostgreSQL, Snowflake, BigQuery, Databricks, and Redshift — see [61-query-plans-explain.md](61-query-plans-explain.md).
-
----
-
----
 

@@ -41,8 +41,6 @@ WHERE status = 'SUCCESS' OR status IS NULL;
 -- CORRECT alternative — IS DISTINCT FROM (NULL-safe):
 SELECT COUNT(*) FROM upi_transactions
 WHERE status IS DISTINCT FROM 'FAILED';
-```sql
-
 ---
 
 #### I-2. NULL in Boolean Logic — AND / OR / NOT Truth Tables
@@ -98,8 +96,6 @@ WHERE is_blocked = FALSE AND txn_amount > 1000000
 -- TRUE OR UNKNOWN = TRUE (safe):
 WHERE kyc_status = 'APPROVED' OR region = 'MUMBAI'
 -- If kyc_status = 'APPROVED', the row is included even if region IS NULL
-```sql
-
 ---
 
 #### I-3. NULL in Arithmetic
@@ -133,8 +129,6 @@ FROM disbursements;
        (COALESCE(disbursement_amount, 0)
       + COALESCE(processing_fee, 0)
       + COALESCE(gst_amount, 0))  AS total_cost
-```sql
-
 ---
 
 #### I-4. IS NULL / IS NOT NULL — The Only Correct NULL Check
@@ -159,8 +153,6 @@ CASE
     WHEN repayment_date = NULL THEN 'Outstanding'  -- never matched!
     ...
 END
-```sql
-
 ---
 
 #### I-5. COALESCE — Return First Non-NULL
@@ -187,8 +179,6 @@ SELECT
     SUM(COALESCE(daily_revenue, 0)) OVER (ORDER BY dt ROWS UNBOUNDED PRECEDING) AS running_total
 FROM date_spine
 LEFT JOIN daily_revenue_agg USING (dt);
-```sql
-
 ---
 
 #### I-6. NULLIF — Prevent Divide-by-Zero
@@ -217,8 +207,6 @@ SELECT
 FROM monthly_revenue;
 -- LAG returns NULL for first month → NULL / NULLIF(NULL, 0) = NULL (no error)
 -- NULLIF also guards against 0 prior revenue (new product launches)
-```sql
-
 ---
 
 #### I-7. IS DISTINCT FROM / IS NOT DISTINCT FROM
@@ -249,8 +237,6 @@ WHERE curr.co_applicant_id IS DISTINCT FROM prev.co_applicant_id
 
 -- Inverse: find rows that did NOT change (including both NULL = both NULL):
 WHERE curr.co_applicant_id IS NOT DISTINCT FROM prev.co_applicant_id
-```
-
 ```sql
 -- CDC / change-detection pattern: flag any column that changed across snapshots
 -- Common in SCD Type 2 pipelines and audit-log generators
@@ -264,8 +250,6 @@ FROM loan_snapshots curr
 JOIN loan_snapshots prev USING (loan_id)
 WHERE curr.snapshot_date = CURRENT_DATE
   AND prev.snapshot_date = CURRENT_DATE - 1;
-```
-
 ```sql
 -- WHERE filter that includes NULLs cleanly (equivalent to != but NULL-safe):
 -- "Give me all transactions that are NOT 'FAILED'"
@@ -281,19 +265,8 @@ WHERE status IS DISTINCT FROM 'FAILED'   -- NULL IS DISTINCT FROM 'FAILED' = TRU
 WHERE status != 'FAILED' OR status IS NULL
 ```
 
-```sql
--- JOIN with NULL-safe equality (USING / ON = both fail on NULLs)
--- e.g., matching on optional segment_id that can be NULL on both sides
-
--- WRONG — NULL = NULL is UNKNOWN, so NULL-keyed rows never join:
-JOIN segment_metadata sm ON t.segment_id = sm.segment_id
-
--- CORRECT (Snowflake / BigQuery syntax: equal_null or IS NOT DISTINCT FROM):
-JOIN segment_metadata sm ON t.segment_id IS NOT DISTINCT FROM sm.segment_id
--- Snowflake shorthand: EQUAL_NULL(t.segment_id, sm.segment_id)
-```
 
 **Key rules:**
 - Use `IS DISTINCT FROM` wherever you would use `!=` but the columns can be NULL.
 - Use `IS NOT DISTINCT FROM` wherever you would use `=` on nullable columns (especially JOIN keys, deduplication checks, SCD change detection).
-- `IS DISTINCT FROM` is SQL standard; Snowflake also provides `EQUAL_NULL(a, b)` as a shorthand for `a IS NOT DISTINCT FROM b`.
+

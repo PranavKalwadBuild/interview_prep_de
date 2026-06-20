@@ -31,9 +31,8 @@ A quick reference for the foundational building blocks of SQL — the stuff that
 | Decimal | `DECIMAL(p,s)`, `NUMERIC(p,s)`, `FLOAT`, `DOUBLE` | `DECIMAL` is exact; `FLOAT` is approximate — never use float for money |
 | String | `VARCHAR(n)`, `TEXT`, `CHAR(n)` | `CHAR` is fixed-width; `VARCHAR` is variable |
 | Date/Time | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMPTZ` | Always store in UTC; convert at display layer |
-| Boolean | `BOOLEAN` / `BOOL` | Some engines use `TINYINT(1)` (MySQL) |
-| JSON | `JSON`, `JSONB` (PostgreSQL) | `JSONB` is binary-indexed, faster to query |
-| Array | `ARRAY` (PostgreSQL, BigQuery, Snowflake) | `ARRAY<STRING>` in BigQuery |
+| Boolean | `BOOLEAN` | ANSI SQL standard. Some engines use `TINYINT(1)` (MySQL) as a workaround. |
+| JSON | `JSON` | ANSI SQL standard (limited support). PostgreSQL offers `JSON` and `JSONB` (binary-indexed, faster to query). MySQL supports `JSON` data type. |
 | NULL | Not a type — a marker for unknown/missing | `NULL ≠ ''` and `NULL ≠ 0` |
 
 ---
@@ -42,44 +41,6 @@ A quick reference for the foundational building blocks of SQL — the stuff that
 
 **DDL (Data Definition Language)** defines the structure of the database. Changes are auto-committed in most engines.
 
-```sql
--- Create a table
-CREATE TABLE employees (
-    emp_id      INT           PRIMARY KEY,
-    name        VARCHAR(100)  NOT NULL,
-    dept_id     INT           REFERENCES departments(dept_id),
-    salary      DECIMAL(12,2) DEFAULT 0,
-    hired_at    DATE          NOT NULL,
-    is_active   BOOLEAN       DEFAULT TRUE
-);
-
--- Add a column
-ALTER TABLE employees ADD COLUMN email VARCHAR(255);
-
--- Rename a column (PostgreSQL / Snowflake)
-ALTER TABLE employees RENAME COLUMN name TO full_name;
-
--- Change a column type
-ALTER TABLE employees ALTER COLUMN salary TYPE BIGINT;  -- PostgreSQL
-ALTER TABLE employees MODIFY COLUMN salary BIGINT;      -- MySQL
-
--- Drop a column
-ALTER TABLE employees DROP COLUMN email;
-
--- Drop a table (irreversible — removes structure AND data)
-DROP TABLE employees;
-
--- Truncate — removes all rows but keeps the structure; much faster than DELETE
-TRUNCATE TABLE employees;
-
--- Create a table from a SELECT (CTAS)
-CREATE TABLE high_earners AS
-SELECT * FROM employees WHERE salary > 100000;
-
--- Create a view
-CREATE OR REPLACE VIEW active_employees AS
-SELECT emp_id, full_name, dept_id FROM employees WHERE is_active = TRUE;
-```
 
 **Key DDL commands:**
 
@@ -123,18 +84,46 @@ DELETE FROM employees
 WHERE is_active = FALSE AND hired_at < '2018-01-01';
 
 -- UPSERT (insert or update if key exists)
--- PostgreSQL
+-- ANSI SQL: MERGE (limited support in some engines)
+MERGE INTO employees AS target
+USING (SELECT 1 AS emp_id, 'Alice Smith' AS full_name, 100000.00 AS salary) AS source
+ON target.emp_id = source.emp_id
+WHEN MATCHED THEN UPDATE SET salary = source.salary
+WHEN NOT MATCHED THEN INSERT (emp_id, full_name, salary) VALUES (source.emp_id, source.full_name, source.salary);
+
+-- PostgreSQL (when MERGE not supported)
 INSERT INTO employees (emp_id, full_name, salary)
 VALUES (1, 'Alice Smith', 100000)
 ON CONFLICT (emp_id) DO UPDATE SET salary = EXCLUDED.salary;
 
--- MySQL
+-- MySQL (when MERGE not supported)
 INSERT INTO employees (emp_id, full_name, salary)
 VALUES (1, 'Alice Smith', 100000)
 ON DUPLICATE KEY UPDATE salary = VALUES(salary);
 ```
 
 > **Gotcha:** `DELETE` without `WHERE` wipes the entire table — same result as `TRUNCATE` but slower and logged row-by-row. Always double-check your `WHERE` clause first.
+> 
+> **Why it happens:** Without a WHERE clause, DELETE matches all rows in the table. This is particularly dangerous in production environments where accidental execution can lead to数据丢失 (data loss) requiring point-in-time recovery from backups.
+> 
+> **Examples:**
+> - `DELETE FROM accounts;` deletes every account record
+> - `DELETE FROM users;` removes all user profiles
+> - `DELETE FROM orders;` eliminates all order history
+> 
+> **Additional Risks:**
+> - But unlike TRUNCATE, DELETE fires ON DELETE triggers for each row
+> - DELETE generates transaction log entries for each deleted row (can fill log space)
+> - DELETE with no WHERE still acquires locks and can block other operations
+> 
+> **Fix:** Always include a WHERE clause; test with a SELECT statement first to verify the rows that will be deleted. Consider using transactions for safety:
+> 
+> ```sql
+> BEGIN TRANSACTION;
+> DELETE FROM employees WHERE department = 'tmp';
+> -- Review affected rows
+> COMMIT; -- or ROLLBACK if wrong
+> ```
 
 ---
 
@@ -171,7 +160,6 @@ ORDER BY dept_id ASC, salary DESC;
 
 -- LIMIT / OFFSET for pagination
 SELECT * FROM employees ORDER BY emp_id LIMIT 10 OFFSET 20;  -- rows 21–30
-```sql
-
 ---
+
 

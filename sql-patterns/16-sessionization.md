@@ -26,8 +26,6 @@ Group user activity events into "sessions" — a session ends when there is a ga
 
 ### Boilerplate
 
-```
-
 ```sql
 -- Business: group user app events into sessions (30-min inactivity = new session)
 WITH with_prev_time AS (
@@ -43,7 +41,6 @@ session_breaks AS (
     SELECT *,
         CASE
             WHEN prev_event_at IS NULL
-                 OR DATEDIFF('minute', prev_event_at, event_at) > 30
             THEN 1 ELSE 0
         END AS is_new_session
     FROM with_prev_time
@@ -63,7 +60,6 @@ SELECT
     session_id,
     MIN(event_at)                               AS session_start,
     MAX(event_at)                               AS session_end,
-    DATEDIFF('minute', MIN(event_at), MAX(event_at)) AS session_duration_minutes,
     COUNT(*)                                    AS events_in_session
 FROM with_session_id
 GROUP BY user_id, session_id;
@@ -178,10 +174,6 @@ CASE
     WHEN next_event_at - event_at > INTERVAL '30 min'     THEN 1
     ELSE 0
 END AS is_session_end
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -201,8 +193,6 @@ Session boundary detection: O(N) sequential scan per partition (can't parallelis
 
 #### Code-Level Fix
 
-```
-
 ```sql
 -- BEFORE: sessionize entire 2B row history
 WITH lagged AS (
@@ -217,19 +207,13 @@ WITH lagged AS (
     SELECT user_id, event_at, event_type,
         LAG(event_at) OVER (PARTITION BY user_id ORDER BY event_at) AS prev_event_at
     FROM user_events
-    WHERE event_at >= NOW() - INTERVAL '24 hours'   -- 2B → ~50M rows (99% reduction)
+    WHERE event_at >= CURRENT_TIMESTAMP - INTERVAL '24' HOUR
 ),
 ...
 
--- FIX 2: Streaming sessionization — never batch-process 2B rows again
--- Use Spark Structured Streaming with session windows:
--- https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#session-window
--- Session windows: automatically groups events within N minutes of each other
--- Emits complete sessions when the gap timer expires
--- State stored in RocksDB checkpointed to S3 — no full table recompute
-
-val sessionDF = events
-    .withWatermark("event_at", "10 minutes")
+-- FIX 2: Maintain sessions incrementally.
+-- Process only new events since the last successful watermark, update open sessions,
+-- and close sessions once no new event has arrived within the inactivity threshold.
     .groupBy(
         session_window($"event_at", "30 minutes"),
         $"user_id"
@@ -245,34 +229,24 @@ val sessionDF = events
 #### System-Level Fix
 
 ```sql
--- Delta Lake: OPTIMIZE to fix small file explosion (the root cause of sessionization slowness)
 -- Run nightly after streaming ingestion:
 OPTIMIZE user_events
 WHERE event_date = CURRENT_DATE - 1   -- compact yesterday's files
-ZORDER BY (user_id, event_at);        -- co-locate per user per time
 
 -- Target file size: 128MB–512MB (Delta default: 1GB, often too large for streaming data)
 ALTER TABLE user_events SET TBLPROPERTIES (
     'delta.targetFileSize' = '134217728'  -- 128MB per file
 );
 
--- Snowflake: automatic micro-partition clustering handles this
-ALTER TABLE user_events CLUSTER BY (user_id, DATE_TRUNC('hour', event_at));
 -- Sessionization queries (PARTITION BY user_id ORDER BY event_at) prune micro-partitions
 -- by user_id first → reads only micro-partitions containing that user's events
 
--- BigQuery: partition by DATE(event_at), cluster by user_id
 -- Session queries: partition pruning by date, cluster pruning by user_id
 -- Cost: pay only for partitions and clusters accessed
 CREATE OR REPLACE TABLE user_events
 PARTITION BY DATE(event_at)
-CLUSTER BY user_id, event_type
 OPTIONS (partition_expiration_days = 365)
 AS SELECT * FROM raw_user_events;
-```
-
-```sql
-
 ---
 
 ---

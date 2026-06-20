@@ -15,7 +15,6 @@ SELECT * FROM orders WHERE order_id > '9';
 
 **What actually happens:** If `order_id` is stored as VARCHAR, comparison is lexicographic (character-by-character, left to right). `'10'` < `'9'` because `'1'` < `'9'`. `'100'` < `'9'`. The filter silently misclassifies the majority of IDs in the range 10–99999.
 
-**Why it's insidious:** The query returns rows. The count looks plausible if you don't know the data distribution. No error is raised. Engines that do implicit cast to numeric (MySQL sometimes, Snowflake depending on context) behave differently, making the bug environment-specific.
 
 **Minimal repro:**
 ```sql
@@ -84,34 +83,12 @@ FROM campaign_metrics;
 ### Implicit DATE/TIMESTAMP Cast Timezone Shift on Write
 
 **What it looks like:**
-```sql
--- Session timezone is set to 'America/Chicago' (UTC-6 in winter)
-INSERT INTO events (event_time) VALUES ('2024-01-15 02:00:00');
--- Column is TIMESTAMP_LTZ (Local Time Zone) in Snowflake
-```
 
-**What actually happens:** Snowflake stores `TIMESTAMP_LTZ` as UTC internally. The inserted wall-clock time `02:00:00` is interpreted in the session timezone and converted: `02:00 CST = 08:00 UTC`. A session in UTC later reads `08:00`. The value is silently shifted. No error.
 
 **Why it's insidious:** The value returned looks like a valid timestamp. The shift only surfaces when two sessions with different timezone settings compare results, or when a timestamp comparison crosses a timezone boundary.
 
-**Minimal repro (Snowflake):**
-```sql
-ALTER SESSION SET TIMEZONE = 'America/Chicago';
-CREATE OR REPLACE TEMP TABLE tz_test (ts TIMESTAMP_LTZ);
-INSERT INTO tz_test VALUES ('2024-01-15 02:00:00');
-
-ALTER SESSION SET TIMEZONE = 'UTC';
-SELECT ts FROM tz_test;
--- Returns 2024-01-15 08:00:00.000 +0000 -- silently shifted 6 hours
-```
 
 **How to catch it:**
-```sql
--- Always store timezone-aware timestamps with explicit offset:
-INSERT INTO events VALUES (CONVERT_TIMEZONE('UTC', CURRENT_TIMESTAMP()));
--- Or use TIMESTAMP_NTZ if timezone conversion is never needed
--- and document the convention explicitly.
-```
 
 **Real-world trigger:** ETL pipeline runs in a container set to UTC. Source application is running in EST. Timestamps are ingested without timezone tagging. All event timestamps are silently 5 hours off. Time-series joins to session data from another system produce zero-match JOIN results for entire hours of each day.
 
@@ -128,7 +105,6 @@ FROM table_a a
 JOIN table_b b ON a.product_id = b.product_id;
 ```
 
-**What actually happens:** The engine implicitly casts one side to match the other. Depending on engine behavior (Snowflake, PostgreSQL, SQL Server all differ slightly), the `NUMERIC(18,6)` value `1234567.123456` may be rounded to `1234567.1235` for comparison. If the original keys diverge at the 5th decimal place, the JOIN silently drops matching rows.
 
 **Why it's insidious:** Most product IDs don't use 4–6 decimal places, so the bug lies dormant. It activates only for keys that happen to use the extra precision — often a subset introduced by a new product catalog import.
 
@@ -186,7 +162,6 @@ SELECT
 INSERT INTO customers (notes) VALUES ('This is a very long note that exceeds fifty characters and has important content');
 ```
 
-**What actually happens:** In MySQL without strict mode, and in older Redshift configurations, the string is silently truncated to 50 characters. No error, no warning. The truncated string is stored and later returned as if complete.
 
 **Why it's insidious:** The insert succeeds. The data is queryable. The truncation only surfaces when someone reads the record and notices the truncated text — which may not happen for records that are only processed programmatically.
 
@@ -199,14 +174,6 @@ SELECT * FROM t;                       -- returns 'hello'
 ```
 
 **How to catch it:**
-```sql
--- PostgreSQL / Snowflake: these will error on truncation (safe by default)
--- MySQL: always enable strict mode:
-SET sql_mode = 'STRICT_TRANS_TABLES';
-
--- Detection: check for data at exact max length (suspicious)
-SELECT COUNT(*) FROM customers WHERE LENGTH(notes) = 50;
-```
 
 **Real-world trigger:** Customer notes field stores contractual obligations. Long legal text is truncated silently. Customer service agents see incomplete notes and mishandle a support case.
 
@@ -220,9 +187,7 @@ SELECT SUM(is_active) AS active_count FROM users;
 -- where is_active is BOOLEAN
 ```
 
-**What actually happens:** In PostgreSQL, `SUM(boolean)` fails — booleans are not numeric. In MySQL, TRUE=1, FALSE=0, and `SUM(is_active)` works correctly. In some Redshift configurations, `SUM(bool)` returns 0 silently. The same query can return 0, an error, or a correct count depending on engine.
 
-**Why it's insidious:** Code that works in dev (MySQL) fails silently in prod (Redshift) by returning 0 for all groups rather than a meaningful count.
 
 **Minimal repro:**
 ```sql
@@ -236,45 +201,31 @@ SELECT SUM(CASE WHEN is_active THEN 1 ELSE 0 END) AS active_count FROM users;
 
 **How to catch it:** Audit any `SUM()` or `AVG()` applied to BOOLEAN columns. Make the integer cast explicit: `SUM(is_active::INT)` or `SUM(CASE WHEN is_active THEN 1 ELSE 0 END)`.
 
-**Real-world trigger:** Analytics code written in MySQL moved to Snowflake. `SUM(is_premium)` silently returns 0 on Snowflake where the boolean→int coercion is not automatic. Premium user count appears as zero in all dashboards.
 
 ---
 
-### Snowflake VARIANT String-Float-to-INT Cast Returns NULL
+### Semi-Structured Numeric Cast Silently Loses Decimal Values
 
 **What it looks like:**
 ```sql
-SELECT v:amount::INT AS amount_int
+SELECT CAST(amount_text AS INTEGER) AS amount_int
 FROM events
-WHERE v:type::STRING = 'purchase';
+WHERE event_type = 'purchase';
 ```
 
-**What actually happens:** If `v:amount` is stored in the JSON as a float string (`"1.50"` or `1.5`), the `::INT` cast returns NULL — Snowflake cannot cast a float-valued VARIANT directly to INT. No error. NULL propagates silently through downstream calculations.
 
-**Why it's insidious:** If 95% of records have integer amounts (`"100"`), the cast works and looks correct. The 5% with decimal amounts (`"100.50"`) silently produce NULL — which means `SUM(amount_int)` excludes those amounts entirely.
+**Why it's insidious:** If 95% of records have integer amounts (`'100'`), the cast works and looks correct. The 5% with decimal amounts (`'100.50'`) may fail, truncate, round, or become NULL depending on the implementation. Any of those outcomes is wrong if the business value is money.
 
 **Minimal repro:**
 ```sql
 SELECT
-    PARSE_JSON('{"amount": 100}'):amount::INT    AS int_ok,        -- 100
-    PARSE_JSON('{"amount": 1.5}'):amount::INT    AS float_to_int,  -- NULL (silent!)
-    PARSE_JSON('{"amount": "1.5"}'):amount::INT  AS str_to_int,    -- NULL (silent!)
-    PARSE_JSON('{"amount": 1.5}'):amount::FLOAT::INT AS safe_cast  -- 1 (truncated)
+    amount_text,
+    CAST(amount_text AS DECIMAL(18,2)) AS amount_decimal
+FROM events;
 ```
 
 **How to catch it:**
-```sql
--- Detect NULL bleed from VARIANT cast:
-SELECT COUNT(*) AS total,
-       COUNT(v:amount::INT) AS non_null_ints,
-       COUNT(*) - COUNT(v:amount::INT) AS silently_null
-FROM events WHERE v:type::STRING = 'purchase';
 
--- Safe cast pattern:
-SELECT TRY_CAST(v:amount::STRING AS FLOAT)::INT AS safe_amount
-```
-
-**Real-world trigger:** Payment events come from two sources: one always sends integer amounts, one sends float amounts with cents. The VARIANT cast works perfectly for source A. Source B amounts are silently NULL. Revenue figures undercount by exactly the value from source B — which happens to be the highest-value payment provider.
 
 ---
 
@@ -290,7 +241,6 @@ JOIN sessions s ON u.user_id = s.user_id
 GROUP BY u.name;
 ```
 
-**What actually happens:** The engine implicitly casts one side. In SQL Server, it typically casts the lower-precedence type (VARCHAR) to the higher (BIGINT). If `s.user_id` contains non-numeric strings like `'user_12abc'`, the cast fails or silently returns no match. In Snowflake, the behavior may differ. The JOIN silently drops mismatched rows.
 
 **Why it's insidious:** If most IDs are pure numerics, the join works for 98% of rows. The 2% with non-numeric IDs (guest users, test accounts, external OAuth IDs) silently disappear. Row counts look reasonable.
 

@@ -137,62 +137,9 @@ ORDER BY month;
 
 #### Detection queries
 
-```sql
--- Find duplicate rows by business key
-SELECT txn_id, COUNT(*) AS cnt
-FROM transactions
-GROUP BY txn_id
-HAVING COUNT(*) > 1;
-
--- Find duplicate rows — exact duplicates (all columns)
-SELECT *, COUNT(*) OVER (PARTITION BY col1, col2, col3) AS dup_count
-FROM my_table
-QUALIFY dup_count > 1;    -- Snowflake / BigQuery
-
--- Find SCD2 entities with multiple active records
-SELECT entity_id, COUNT(*) AS active_rows
-FROM dim_table
-WHERE valid_to IS NULL
-GROUP BY entity_id
-HAVING COUNT(*) > 1;
-```
 
 #### Fix patterns at a glance
 
-```sql
--- 1. Exact dedup (all columns identical)
-SELECT DISTINCT * FROM my_table;
-
--- 2. Soft dedup (keep latest per business key)
-WITH r AS (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY biz_key ORDER BY loaded_at DESC) AS rn
-    FROM my_table
-)
-SELECT * FROM r WHERE rn = 1;
-
--- 3. Hash dedup (exact content across systems, NULL-safe)
-MD5(CONCAT_WS('||',
-    COALESCE(CAST(col1 AS VARCHAR), '__NULL__'),
-    COALESCE(CAST(col2 AS VARCHAR), '__NULL__')
-)) AS row_hash
-
--- 4. Prevent fan-out from JOIN: aggregate the many-side first
-WITH agg AS (SELECT fk, SUM(val) AS total FROM many_table GROUP BY fk)
-SELECT * FROM one_table JOIN agg USING (fk);
-
--- 5. String aggregation dedup
-SELECT id, STRING_AGG(DISTINCT tag, ', ') FROM tags GROUP BY id;  -- PostgreSQL/BigQuery
--- Snowflake/Redshift: SELECT DISTINCT in CTE first, then LISTAGG
-
--- 6. Funnel: COUNT DISTINCT on user_id, never COUNT(*) per step
-COUNT(DISTINCT CASE WHEN event_type = 'step_A' THEN user_id END)
-
--- 7. Self join — eliminate symmetric pairs
-JOIN other ON a.id < b.id   -- not !=
-
--- 8. Anti-join — use NOT EXISTS, not NOT IN
-WHERE NOT EXISTS (SELECT 1 FROM exclusion e WHERE e.key = t.key)
-```
 
 #### Pattern → Duplicate Risk → Fix
 
@@ -220,5 +167,6 @@ WHERE NOT EXISTS (SELECT 1 FROM exclusion e WHERE e.key = t.key)
 | Latest Record per Entity | Tied max timestamp → 2 rows per entity | ROW_NUMBER() with tiebreaker column |
 
 ---
+
 
 

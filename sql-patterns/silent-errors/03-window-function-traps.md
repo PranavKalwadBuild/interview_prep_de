@@ -293,33 +293,13 @@ SUM(revenue) OVER (
 
 ---
 
-### Snowflake RATIO_TO_REPORT() Silently Excludes NULLs from Denominator
 
 **What it looks like:**
-```sql
-SELECT
-    category,
-    revenue,
-    RATIO_TO_REPORT(revenue) OVER (PARTITION BY quarter) AS revenue_share
-FROM category_revenue;
-```
 
-**What actually happens:** `RATIO_TO_REPORT` computes `value / SUM(all_values_in_partition)`. If some `revenue` values are NULL, they are excluded from both the numerator and denominator. The denominator is the sum of non-NULL values only. Non-NULL categories share a ratio that sums to 1.0 — but the total they sum to may be less than the actual total if NULL categories represent real (unattributed) revenue.
 
 **Why it's insidious:** The ratios always sum to exactly 1.0, which looks correct. The problem is that the denominator is the sum of *attributed* revenue, not *total* revenue. A NULL-revenue category with significant business volume silently disappears from the denominator, inflating every other category's share.
 
 **Minimal repro:**
-```sql
-WITH rev AS (
-    SELECT * FROM (VALUES ('A',1000),('B',2000),('C',NULL)) t(cat, rev)
-)
-SELECT cat, rev,
-       RATIO_TO_REPORT(rev) OVER () AS share
-FROM rev;
--- A: 0.333, B: 0.667, C: NULL
--- Denominator was 3000, not including C. If C represents $500 of unattributed revenue,
--- A's true share is 1000/3500 = 0.286, not 0.333.
-```
 
 **How to catch it:**
 ```sql

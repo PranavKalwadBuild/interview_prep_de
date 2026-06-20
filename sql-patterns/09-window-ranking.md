@@ -78,9 +78,16 @@ WHERE rnk <= 3;
 
 ### Gotchas
 
-- `ROW_NUMBER` with no `ORDER BY` inside OVER is non-deterministic — always specify order
-- `RANK` vs `DENSE_RANK`: if question says "top 3 positions" use `DENSE_RANK` (ties share a rank). If "top 3 rows" use `ROW_NUMBER`.
-- `PARTITION BY` is optional — omitting it treats the entire result set as one partition
+- **ROW_NUMBER non-determinism without ORDER BY**: When `ROW_NUMBER()` is used without an `ORDER BY` clause inside the `OVER()` clause, the assignment of numbers to rows is arbitrary and non-deterministic because the order is not guaranteed. This can lead to inconsistent results across query executions.
+  **Fix:** Always specify an `ORDER BY` clause (e.g., `ORDER BY txn_date, txn_id`) to ensure a deterministic sequence.
+
+- **RANK vs DENSE_RANK for top‑N per group**:
+  - `RANK()` assigns the same rank to tied rows but leaves gaps in the ranking sequence (e.g., 1, 1, 3). If the interview question asks for "top 3 positions" (meaning rank values 1, 2, 3), use `DENSE_RANK()` because ties share a rank and the sequence is dense (1, 1, 2).
+  - If the question asks for "top 3 rows" regardless of ties (i.e., exactly three rows), use `ROW_NUMBER()` with a tiebreaker to guarantee exactly three rows are returned.
+  **Example:** To get the top 3 salespeople by quarterly sales, use `DENSE_RANK()` if you want all people at the top three rank levels (could be more than three people if ties). Use `ROW_NUMBER()` if you need exactly three rows.
+
+- **PARTITION BY optional but important**: Omitting `PARTITION BY` treats the entire result set as a single partition, which may be unintentional when you need per‑group calculations (e.g., running total per customer).
+  **Fix:** Always include `PARTITION BY` when the calculation should restart at boundaries (e.g., per user, per day). If you truly want a global calculation, you can omit it, but be explicit about intent.
 
 ### Edge Cases
 

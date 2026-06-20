@@ -216,8 +216,6 @@ WHERE NOT EXISTS (
 --   NOT EXISTS → FALSE → INSERT skipped ✓
 -- Case 5 — same batch re-run:
 --   New active row already inserted on first run → NOT EXISTS → FALSE → skipped ✓
-```sql
-
 ---
 
 ### Final Production SCD2 — All Constraints Handled
@@ -290,8 +288,6 @@ WHERE NOT EXISTS (
       AND d.city  IS NOT DISTINCT FROM s.city
       AND d.phone IS NOT DISTINCT FROM s.phone
 );
-```sql
-
 ---
 
 ### Reconstruct SCD2 from an audit log (bonus pattern)
@@ -321,7 +317,6 @@ SELECT
     (valid_to IS NULL) AS is_current
 FROM with_next
 ORDER BY customer_id, valid_from;
-```sql
-
 ---
+
 

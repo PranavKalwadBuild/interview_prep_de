@@ -50,6 +50,12 @@ LEFT JOIN employees m ON e.manager_id = m.emp_id;
 | `SELF JOIN` | A table joined to itself |
 
 > **Gotcha:** A `LEFT JOIN` becomes an `INNER JOIN` if you add a `WHERE` filter on a right-table column that rejects NULLs. Move the filter into the `ON` clause to keep the LEFT behaviour.
+> 
+> **Why it happens:** Filtering on a right-table column with WHERE removes rows where the right table is NULL (no match), turning the LEFT JOIN into an inner join.
+> 
+> **Example:** `SELECT * FROM customers LEFT JOIN orders ON customers.id = orders.customer_id WHERE orders.amount > 100;` returns only customers with orders over 100, losing customers with no orders.
+> 
+> **Fix:** Move the filter into the ON clause: `SELECT * FROM customers LEFT JOIN orders ON customers.id = orders.customer_id AND orders.amount > 100;` This keeps all customers, with NULL order amount for those without orders.
 
 ```sql
 -- WRONG — turns LEFT JOIN into INNER JOIN
@@ -62,8 +68,6 @@ WHERE d.dept_name = 'Engineering';    -- filters out NULLs → no longer LEFT JO
 SELECT e.*, d.dept_name
 FROM employees e
 LEFT JOIN departments d ON e.dept_id = d.dept_id AND d.dept_name = 'Engineering';
-```sql
-
 ---
 
 ### E-1. Order of Joins — Which Table Goes on the Left?
@@ -248,7 +252,6 @@ For engines that use **Nested Loop Joins** (common in OLTP, indexed lookups):
 
 **Rule: in a nested loop context, the small/filtered table should drive (go first).** Most optimizers figure this out automatically from statistics, but when stats are stale or you're writing a query hint, keep this in mind.
 
-For **Hash Joins** (dominant in analytical/columnar engines like Snowflake, BigQuery, Databricks):
 - The smaller table is used to build the hash table in memory (the "build side").
 - The larger table is streamed through (the "probe side").
 - Modern optimizers pick the build side regardless of your table order; pre-filtering large tables before the join is the lever you control.
@@ -293,4 +296,5 @@ For **Hash Joins** (dominant in analytical/columnar engines like Snowflake, BigQ
 > **Golden rule:** Ask "which table must I never lose a row from?" — that table goes on the LEFT.
 
 ---
+
 

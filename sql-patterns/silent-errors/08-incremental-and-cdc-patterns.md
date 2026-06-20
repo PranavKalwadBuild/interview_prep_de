@@ -128,12 +128,6 @@ SELECT COUNT(*) AS audit_transitions FROM customer_audit_log WHERE customer_id =
 ```
 
 **How to catch it:**
-```sql
--- Use a CDC stream (Debezium, Snowflake Streams, etc.) instead of snapshot comparison.
--- CDC captures every individual change event, not just before/after snapshots.
--- Alternatively: reduce batch frequency to below the minimum expected transition interval.
--- For compliance-critical history: require source system to expose full audit log.
-```
 
 **Real-world trigger:** Financial regulatory audit requires complete account status history. A customer's account was briefly suspended for fraud review and reinstated within 45 minutes — within a single hourly batch window. The SCD table shows continuous "active" status. Regulatory report shows no suspension history. Compliance failure discovered during audit.
 
@@ -292,14 +286,6 @@ WHERE s.email IS DISTINCT FROM t.email
 ### Dedup by Column Hash — Partial-Column Hashing Drops Legitimate Distinct Rows
 
 **What it looks like:**
-```sql
--- Deduplication using MD5 hash of key columns
-SELECT
-    MD5(CONCAT(user_id, '|', event_type, '|', event_date)) AS row_hash,
-    *
-FROM events
-QUALIFY ROW_NUMBER() OVER (PARTITION BY row_hash ORDER BY loaded_at) = 1;
-```
 
 **What actually happens:** If `CONCAT` is used without NULL handling, `CONCAT(user_id, '|', NULL, '|', event_date)` may return NULL or the NULL may be coerced to an empty string, making `event_type = NULL` and `event_type = ''` hash to the same value. Two genuinely different rows (one with event_type NULL, one with event_type='') are treated as duplicates and one is silently dropped.
 

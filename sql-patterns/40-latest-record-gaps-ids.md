@@ -26,8 +26,6 @@ A very common real-world pattern: get the current/latest state of each entity (u
 ### Four equivalent methods
 
 ```sql
-
-```sql
 -- Method 1: ROW_NUMBER (most flexible)
 WITH latest AS (
     SELECT *,
@@ -97,7 +95,6 @@ This is the same issue as Edge 7-A but worth restating in the latest-record cont
 ```sql
 -- Two loan records updated at exactly the same time (batch processing)
 -- ROW_NUMBER picks one — but which one depends on internal row storage order
--- In Spark: partitioning strategy can change between runs → different row picked each run!
 ```
 
 **Fix — add a business-meaningful tiebreaker:**
@@ -142,10 +139,6 @@ WITH ranked AS (
     ) AS rn FROM orders
 )
 SELECT * FROM ranked WHERE rn = 1;   -- exactly one row per customer, deterministic
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -162,8 +155,6 @@ If CDC table has 1B rows for 50M unique entities: average 20 versions per entity
 
 #### Code-Level Fix
 
-```
-
 ```sql
 -- BEFORE: ROW_NUMBER on 1B CDC rows
 WITH ranked AS (
@@ -172,7 +163,6 @@ WITH ranked AS (
 )
 SELECT * FROM ranked WHERE rn = 1;
 
--- FIX 1: Delta Lake MERGE-based "always current" pattern
 -- Target table is always deduplicated; ROW_NUMBER is never needed at query time
 -- (see 34-7 for full implementation)
 
@@ -188,7 +178,6 @@ JOIN (
 -- Faster than ROW_NUMBER (which requires shuffle + sort)
 -- Caveat: multiple rows with identical MAX(updated_at) → fan-out (fix with dedup or tiebreaker)
 
--- FIX 3: Iceberg / Delta MERGE with delete tracking
 -- DELETE operations are represented in the transaction log (deletion vectors)
 -- "Latest record" = scan only the live files (non-deleted rows)
 -- No ROW_NUMBER needed if the table is maintained correctly via MERGE
@@ -197,19 +186,16 @@ JOIN (
 #### System-Level Fix
 
 ```sql
--- Snowflake: Streams + Tasks for always-current views
 CREATE STREAM cdc_stream ON TABLE cdc_source;
 -- Process only new CDC events (deltas) → maintain a deduplicated target
 -- latest_record table is always current; ROW_NUMBER never needed interactively
 
--- Delta Lake: partition by (entity_type, update_date) + bloom filter on entity_id
 CREATE TABLE cdc_table (
     entity_id   STRING,
     updated_at  TIMESTAMP,
     payload     STRING,
     op          CHAR(1)    -- I/U/D
 )
-USING DELTA
 PARTITIONED BY (DATE(updated_at))
 TBLPROPERTIES (
     'delta.bloomFilter.columns' = 'entity_id',
@@ -218,13 +204,8 @@ TBLPROPERTIES (
 -- MERGE: bloom filter finds matching entity_id files instantly
 -- Latest record: scan only the most recent partition + bloom filter lookup
 
--- BigQuery: partition by DATE(updated_at), cluster by entity_id
 -- Latest record via: SELECT * FROM cdc WHERE DATE(updated_at) = (SELECT MAX(DATE(updated_at)) FROM cdc WHERE entity_id = :id)
 -- Partition pruning + cluster pruning → reads < 1% of data
-```
-
-```sql
-
 ---
 
 ---
@@ -251,8 +232,6 @@ Find missing values in a sequence (missing invoice numbers, missing trade IDs, m
 - **Any domain:** Verify that a sequence/auto-increment generator hasn't skipped values after a database restart or failover
 
 ### Boilerplate
-
-```
 
 ```sql
 -- Find gaps in trade_id sequence
@@ -354,24 +333,6 @@ WITH gaps AS (
 SELECT prev_id + 1 AS gap_start, order_id - 1 AS gap_end, gap_size
 FROM gaps
 WHERE gap_size > 100;   -- only flag gaps larger than expected sequence cache size (e.g., 100)
-```
-
----
-
-### At Scale
-
-#### Failure Mechanism
-
-`generate_series(MIN(id), MAX(id)) LEFT JOIN table` where the ID range is large:
-
-- `generate_series(1, 900_000_000)` → 900M rows created in memory just for the sequence
-- In Spark: `sequence()` UDF to generate 900M integers → 900M × 8 bytes = 7.2GB memory
-- In PostgreSQL: generates rows one by one — functional but slow above 100M gaps
-- In BigQuery: generates the entire series as a cross join expand — OOM above 1B range
-
-#### Code-Level Fix
-
-```sql
 
 ```sql
 -- BEFORE: generate_series on 900M range → OOM
@@ -416,11 +377,8 @@ CREATE TABLE sequence_counters (seq_name VARCHAR(50) PRIMARY KEY, next_val BIGIN
 -- Store gaps immediately as they're detected, not by scanning the whole table:
 CREATE TABLE order_id_gaps (gap_start BIGINT, gap_end BIGINT, detected_at TIMESTAMP);
 -- Gap query: SELECT * FROM order_id_gaps — trivially fast
-```
-
-```sql
-
 ---
 
 ---
+
 

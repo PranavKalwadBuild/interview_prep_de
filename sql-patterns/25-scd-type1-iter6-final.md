@@ -165,9 +165,7 @@ WHEN NOT MATCHED BY SOURCE THEN
 
 ### Gotchas
 
-- `WHEN NOT MATCHED BY SOURCE` is Snowflake/SQL Server syntax. BigQuery and some older dialects do not support it — handle deletes in a separate `UPDATE` statement instead.
 - The `updated_at` guard (Iteration 3) assumes the source timestamp is trustworthy. If the source system always re-stamps `updated_at = NOW()` on every export, drop the guard and rely solely on `IS DISTINCT FROM`.
-- Always deduplicate the source CTE (Iteration 4) — if even one `customer_id` has two rows in staging, Snowflake will raise a non-deterministic MERGE error.
 - Soft deletes require a discipline contract: every consumer query must filter `WHERE is_active = TRUE`, or build a view that does it automatically.
 
 ### Edge Cases
@@ -216,32 +214,6 @@ COUNT(CASE WHEN kyc_seq > signup_seq THEN 1 END)
 
 **Fix:**
 
-```sql
--- Use MAX flag for funnel conversion counts and MIN timestamp for timing.
--- This correctly handles a user who completes a step multiple times:
-WITH funnel AS (
-    SELECT
-        user_id,
-        MAX(CASE WHEN event_type = 'signup'    THEN 1 ELSE 0 END) AS did_signup,
-        MAX(CASE WHEN event_type = 'kyc_pass'  THEN 1 ELSE 0 END) AS did_kyc_pass,
-        MAX(CASE WHEN event_type = 'first_txn' THEN 1 ELSE 0 END) AS did_first_txn,
-        -- Use the FIRST successful event timestamp for timing metrics:
-        MIN(CASE WHEN event_type = 'signup'    THEN event_at END) AS signed_up_at,
-        MIN(CASE WHEN event_type = 'kyc_pass'  THEN event_at END) AS kyc_passed_at,
-        MIN(CASE WHEN event_type = 'first_txn' THEN event_at END) AS first_txn_at
-    FROM user_events
-    GROUP BY user_id
-)
-SELECT
-    SUM(did_signup)    AS total_signups,
-    SUM(did_kyc_pass)  AS total_kyc_completions,
-    SUM(did_first_txn) AS total_first_transactions,
-    ROUND(100.0 * SUM(did_kyc_pass)  / NULLIF(SUM(did_signup), 0), 2)    AS signup_to_kyc_pct,
-    ROUND(100.0 * SUM(did_first_txn) / NULLIF(SUM(did_kyc_pass), 0), 2)  AS kyc_to_txn_pct,
-    ROUND(AVG(DATEDIFF('day', signed_up_at, kyc_passed_at))
-        FILTER (WHERE did_kyc_pass = 1), 2) AS avg_days_signup_to_kyc
-FROM funnel;
-```
 
 ---
 
@@ -257,68 +229,12 @@ The MAX(CASE WHEN ...) funnel requires **one full GROUP BY scan** of the events 
 
 #### Code-Level Fix
 
-```sql
--- BEFORE: ordered funnel with self-join on 2B event table
-WITH first_events AS (
-    SELECT user_id, event_type, MIN(event_at) AS event_at
-    FROM user_events GROUP BY user_id, event_type
-),
-pivoted AS (
-    SELECT user_id,
-        MAX(CASE WHEN event_type = 'signup'     THEN event_at END) AS signup_at,
-        MAX(CASE WHEN event_type = 'kyc_pass'   THEN event_at END) AS kyc_at,
-        MAX(CASE WHEN event_type = 'first_txn'  THEN event_at END) AS txn_at
-    FROM first_events GROUP BY user_id
-)
-SELECT COUNT(*) AS signups,
-    COUNT(CASE WHEN kyc_at > signup_at THEN 1 END) AS kyc_completions,
-    COUNT(CASE WHEN txn_at > kyc_at   THEN 1 END) AS txn_completions
-FROM pivoted;
-
--- FIX 1: Use a pre-aggregated user_first_events table
--- "first event per user per type" is computed ONCE at write time (event sourcing pattern)
--- The pivoted table above is effectively a denormalised version of this
-CREATE TABLE user_event_milestones (
-    user_id         STRING,
-    signup_at       TIMESTAMP,
-    kyc_at          TIMESTAMP,
-    first_txn_at    TIMESTAMP,
-    first_deposit_at TIMESTAMP
-)
-USING DELTA;
--- Populated via MERGE on every new qualifying event
--- Funnel query on this table: 100M rows × 4 columns = trivially fast
-
--- FIX 2: For real-time funnel metrics, use approximate counting
--- HyperLogLog for unique user counts in each step:
-SELECT
-    hyperloglog_count(CASE WHEN signup_at IS NOT NULL THEN user_id END)    AS approx_signups,
-    hyperloglog_count(CASE WHEN kyc_at IS NOT NULL    THEN user_id END)    AS approx_kyc,
-    hyperloglog_count(CASE WHEN first_txn_at IS NOT NULL THEN user_id END) AS approx_txns
-FROM user_event_milestones;
--- 1% error, 100× faster than COUNT(DISTINCT) for large tables
--- Use Snowflake's HLL_ACCUMULATE/HLL_ESTIMATE or BigQuery's HLL_COUNT.EXTRACT
-```
 
 #### System-Level Fix
 
-```sql
--- Snowflake: materialised view for funnel metrics by day and cohort
-CREATE OR REPLACE MATERIALIZED VIEW mv_funnel_daily AS
-SELECT
-    DATE(signup_at)                     AS signup_date,
-    COUNT(*)                            AS signups,
-    COUNT(kyc_at)                       AS kyc_completions,
-    COUNT(first_txn_at)                 AS txn_completions,
-    -- Precompute conversion rates:
-    ROUND(100.0 * COUNT(kyc_at) / NULLIF(COUNT(*), 0), 2) AS signup_to_kyc_pct
-FROM user_event_milestones
-GROUP BY 1;
--- Dashboard query: SELECT * FROM mv_funnel_daily WHERE signup_date >= :start
--- No aggregation at query time; Snowflake refreshes automatically
-```sql
 
 ---
 
 ---
+
 

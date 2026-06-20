@@ -186,36 +186,6 @@ GROUP BY a.emp_id, a.salary;
 
 #### Problem — STRING_AGG / LISTAGG produces repeated values
 
-```sql
--- Aggregate product tags per order. An order has tag 'sale' twice (inserted twice).
-SELECT
-    order_id,
-    STRING_AGG(tag, ', ') AS tags        -- 'sale, sale, electronics'
-FROM order_tags
-GROUP BY order_id;
--- 'sale' appears twice — looks like a data quality bug in the output.
-
--- FIX 1: use DISTINCT inside STRING_AGG (PostgreSQL, BigQuery, Databricks)
-SELECT
-    order_id,
-    STRING_AGG(DISTINCT tag, ', ' ORDER BY tag) AS tags   -- 'electronics, sale'
-FROM order_tags
-GROUP BY order_id;
-
--- FIX 2: dedup source before aggregation (works on all engines including Snowflake/Redshift)
-WITH deduped_tags AS (
-    SELECT DISTINCT order_id, tag
-    FROM order_tags
-)
-SELECT
-    order_id,
-    LISTAGG(tag, ', ') WITHIN GROUP (ORDER BY tag) AS tags
-FROM deduped_tags
-GROUP BY order_id;
-
--- Snowflake LISTAGG does not support DISTINCT natively — always use FIX 2 on Snowflake.
--- Redshift LISTAGG: same — no DISTINCT support; use FIX 2.
-```
 
 ---
 
@@ -299,4 +269,5 @@ WHERE o.order_id IS NULL;
 ```
 
 ---
+
 

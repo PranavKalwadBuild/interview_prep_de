@@ -27,8 +27,6 @@ Generate a continuous series of dates so that time-series aggregations don't ski
 
 ### Boilerplate — Recursive CTE date spine
 
-```
-
 ```sql
 -- Generate all dates between two bounds
 WITH RECURSIVE date_spine AS (
@@ -78,10 +76,6 @@ ORDER BY ds.dt;
 
 -- Engine-specific date spine patterns:
 -- PostgreSQL: generate_series(start, end, '1 day'::INTERVAL)
--- Snowflake: DATEADD('day', seq4.index, start_date) with GENERATOR(rowcount => N)
--- BigQuery: GENERATE_DATE_ARRAY(start, end, INTERVAL 1 DAY)
--- Spark SQL: sequence(start_date, end_date, INTERVAL 1 DAY) or explode
--- SQL Server: recursive CTE or a numbers table
 ```
 
 **Fix:**
@@ -89,7 +83,6 @@ ORDER BY ds.dt;
 ```sql
 -- Always use engine-native sequence generation — never hardcode individual dates:
 
--- PostgreSQL / DuckDB:
 SELECT generate_series(
     '2024-01-01'::DATE,
     '2024-12-31'::DATE,
@@ -97,15 +90,10 @@ SELECT generate_series(
 )::DATE AS spine_date;
 -- Feb 29 (2024 is a leap year) is automatically included ✓
 
--- Snowflake:
-SELECT DATEADD('day', SEQ4.INDEX, '2024-01-01'::DATE) AS spine_date
-FROM TABLE(GENERATOR(ROWCOUNT => 366))  -- 366 for leap year; use DATEDIFF to compute count
 WHERE spine_date <= '2024-12-31';
 
--- BigQuery:
 SELECT dt FROM UNNEST(GENERATE_DATE_ARRAY('2024-01-01', '2024-12-31', INTERVAL 1 DAY)) AS dt;
 
--- Spark SQL:
 SELECT explode(sequence(DATE '2024-01-01', DATE '2024-12-31', INTERVAL 1 DAY)) AS spine_date;
 -- All of these handle leap years correctly — never hardcode UNION ALL lists of dates
 ```
@@ -133,8 +121,6 @@ SELECT explode(sequence(DATE '2024-01-01', DATE '2024-12-31', INTERVAL 1 DAY)) A
 SELECT
     event_id,
     event_at_utc,
-    CONVERT_TIMEZONE('UTC', 'America/New_York', event_at_utc) AS event_at_local,
-    DATE(CONVERT_TIMEZONE('UTC', 'America/New_York', event_at_utc)) AS local_date
 FROM events;
 -- Date spine is always built in UTC; local date derived at read time, not write time
 
@@ -161,8 +147,6 @@ A date spine CROSS JOINed to a large entity table creates a cartesian product:
 - Even at 10 bytes/row: 365GB of intermediate data — OOM in almost every engine
 
 #### Code-Level Fix
-
-```sql
 
 ```sql
 -- BEFORE: date spine × users to fill daily activity gaps — 36.5B rows
@@ -218,31 +202,9 @@ user_spine AS (
 
 #### System-Level Fix
 
-```sql
--- Maintain a physical calendar_dim table (built once, used everywhere):
-CREATE TABLE calendar_dim (
-    cal_date        DATE PRIMARY KEY,
-    cal_year        SMALLINT,
-    cal_month       TINYINT,
-    cal_quarter     TINYINT,
-    day_of_week     TINYINT,
-    is_business_day BOOLEAN,
-    is_holiday      BOOLEAN,
-    fiscal_year     SMALLINT,
-    fiscal_month    TINYINT
-)
--- Snowflake: DISTSTYLE ALL (small table, broadcast everywhere)
--- Redshift: DISTSTYLE ALL, SORTKEY(cal_date)
--- Delta Lake: no partitioning needed (tiny table, always cached in memory)
-
--- Load once for 10 years: 3,650 rows — negligible storage
--- All date spine queries become: JOIN calendar_dim c ON c.cal_date BETWEEN start AND end
--- No generate_series at query time ever
-```
-
-```sql
 
 ---
 
 ---
+
 

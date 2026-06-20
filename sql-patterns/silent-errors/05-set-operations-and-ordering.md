@@ -214,25 +214,12 @@ FROM user_events
 ORDER BY event_timestamp;  -- event_timestamp not in SELECT list
 ```
 
-**What actually happens:** Behavior is engine-specific and undefined. PostgreSQL raises an error. MySQL silently allows it, ordering by the non-selected column and returning DISTINCT rows in that order — but since DISTINCT collapses multiple rows into one, the ORDER BY applies to whichever row survives deduplication. Snowflake may error or ignore the ORDER BY. The same query produces different errors or different results depending on where it runs.
 
-**Why it's insidious:** The query compiles on MySQL/older Redshift, returns results, looks correct — then fails on Postgres or returns different ordering on Snowflake. "Works on my machine" bugs triggered by migration between engines.
 
 **Minimal repro:**
-```sql
--- PostgreSQL: ERROR: for SELECT DISTINCT, ORDER BY expressions must appear in select list
--- MySQL: runs, but ORDER BY applies ambiguously to deduplicated rows
--- Snowflake: varies by version and compatibility mode
-
--- Safe pattern (always works):
-SELECT DISTINCT user_id, segment
-FROM user_events
-ORDER BY user_id, segment;  -- only ORDER BY on selected columns
-```
 
 **How to catch it:** Add a CI test that runs the query on the target warehouse engine specifically. Never assume a query that works in one SQL dialect is portable to another for DISTINCT + ORDER BY combinations.
 
-**Real-world trigger:** Reporting query developed in MySQL is migrated to Snowflake. Query includes `ORDER BY created_at` after `SELECT DISTINCT user_id`. Snowflake behavior differs, and the "sorted by signup date" requirement breaks silently or errors intermittently.
 
 ---
 

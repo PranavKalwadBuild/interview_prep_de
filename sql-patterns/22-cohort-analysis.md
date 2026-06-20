@@ -27,14 +27,14 @@ Group users by the period they first appeared (cohort) and track their behaviour
 
 ### Boilerplate
 
-```
-
-```sql
+-- ANSI SQL approach: Extract year/month for grouping (most portable)
 -- Step 1: Find each user's first activity month (cohort assignment)
 WITH user_cohorts AS (
     SELECT
         user_id,
-        DATE_TRUNC('month', MIN(executed_at)) AS cohort_month
+        (EXTRACT(YEAR FROM MIN(executed_at)) * 100 + EXTRACT(MONTH FROM MIN(executed_at))) AS cohort_year_month,
+        EXTRACT(YEAR FROM MIN(executed_at)) AS cohort_year,
+        EXTRACT(MONTH FROM MIN(executed_at)) AS cohort_month
     FROM trades
     GROUP BY user_id
 ),
@@ -43,55 +43,144 @@ WITH user_cohorts AS (
 user_activity AS (
     SELECT DISTINCT
         user_id,
-        DATE_TRUNC('month', executed_at) AS active_month
+        (EXTRACT(YEAR FROM executed_at) * 100 + EXTRACT(MONTH FROM executed_at)) AS active_year_month,
+        EXTRACT(YEAR FROM executed_at) AS active_year,
+        EXTRACT(MONTH FROM executed_at) AS active_month
     FROM trades
 ),
 
 -- Step 3: Join and compute months since cohort
 cohort_data AS (
     SELECT
+        uc.cohort_year,
         uc.cohort_month,
+        ua.active_year,
         ua.active_month,
-        DATEDIFF('month', uc.cohort_month, ua.active_month) AS months_since_cohort,
         COUNT(DISTINCT ua.user_id)                           AS active_users
     FROM user_cohorts uc
-    JOIN user_activity ua USING (user_id)
-    GROUP BY 1, 2, 3
+    JOIN user_activity ua ON uc.user_id = ua.user_id
+    GROUP BY uc.cohort_year, uc.cohort_month, ua.active_year, ua.active_month
 ),
 
 -- Step 4: Get cohort sizes
 cohort_sizes AS (
-    SELECT cohort_month, COUNT(*) AS cohort_size
+    SELECT cohort_year, cohort_month, COUNT(*) AS cohort_size
     FROM user_cohorts
-    GROUP BY cohort_month
+    GROUP BY cohort_year, cohort_month
 )
 
 -- Step 5: Compute retention %
 SELECT
-    cd.cohort_month,
-    cd.months_since_cohort,
+    cs.cohort_year,
+    cs.cohort_month,
+    cd.active_year,
+    cd.active_month,
     cd.active_users,
     cs.cohort_size,
     ROUND(cd.active_users * 100.0 / cs.cohort_size, 2) AS retention_pct
 FROM cohort_data cd
-JOIN cohort_sizes cs USING (cohort_month)
-ORDER BY cd.cohort_month, cd.months_since_cohort;
-```
-
-### Gotchas
-
-- Month 0 retention should always be 100% (all users in cohort were active in their sign-up month) — use this to validate your query
-- Use `DATEDIFF('month', ...)` not date arithmetic to ensure clean month offsets
-- Cohort analysis almost always requires 4–5 CTEs — don't try to do it in fewer
-
-### Edge Cases
-
-#### Edge 12-A: Month-0 retention is not 100% — your cohort query is broken
-
-**Problem:**
-
-```sql
+JOIN cohort_sizes cs ON cd.cohort_year = cs.cohort_year AND cd.cohort_month = cs.cohort_month
+ORDER BY cs.cohort_year, cs.cohort_month, cd.active_year, cd.active_month;
 -- By definition: a cohort is the set of users active in their first month
+-- Month-0 retention = active users in cohort month / cohort size = 100% always
+-- If your query shows Month-0 retention < 100%, one of these is wrong:
+-- 1. Cohort is defined as registration date, but activity is first transaction date
+--    (some users register but don't transact in the same month → Month 0 < 100%)
+-- 2. The activity table has missing data for the cohort month
+-- 3. Timezone misalignment: registration is in UTC+5:30, activity is in UTC
+--    → some users' first activity falls in the "wrong" calendar month after conversion
+
+-- PostgreSQL fallback: DATE_TRUNC for when you need timestamp values
+WITH user_cohorts_pg AS (
+    SELECT
+        user_id,
+        DATE_TRUNC('month', MIN(executed_at)) AS cohort_month
+    FROM trades
+    GROUP BY user_id
+),
+user_activity_pg AS (
+    SELECT DISTINCT
+        user_id,
+        DATE_TRUNC('month', executed_at) AS active_month
+    FROM trades
+),
+cohort_data_pg AS (
+    SELECT
+        uc.cohort_month,
+        ua.active_month,
+        COUNT(DISTINCT ua.user_id)                           AS active_users
+    FROM user_cohorts_pg uc
+    JOIN user_activity_pg ua USING (user_id)
+    GROUP BY 1, 2
+),
+cohort_sizes_pg AS (
+    SELECT cohort_month, COUNT(*) AS cohort_size
+    FROM user_cohorts_pg
+    GROUP BY cohort_month
+)
+SELECT
+    cs.cohort_month,
+    cd.active_month,
+    cd.active_users,
+    cs.cohort_size,
+    ROUND(cd.active_users * 100.0 / cs.cohort_size, 2) AS retention_pct
+FROM cohort_data_pg cd
+JOIN cohort_sizes_pg cs USING (cohort_month)
+ORDER BY cs.cohort_month, cd.months_since_cohort;
+-- By definition: a cohort is the set of users active in their first month
+-- Month-0 retention = active users in cohort month / cohort size = 100% always
+-- If your query shows Month-0 retention < 100%, one of these is wrong:
+-- 1. Cohort is defined as registration date, but activity is first transaction date
+--    (some users register but don't transact in the same month → Month 0 < 100%)
+-- 2. The activity table has missing data for the cohort month
+-- 3. Timezone misalignment: registration is in UTC+5:30, activity is in UTC
+--    → some users' first activity falls in the "wrong" calendar month after conversion
+
+-- MySQL fallback: DATE_FORMAT for period grouping
+WITH user_cohorts_my AS (
+    SELECT
+        user_id,
+        DATE_FORMAT(MIN(executed_at), '%Y-%m') AS cohort_year_month
+    FROM trades
+    GROUP BY user_id
+),
+user_activity_my AS (
+    SELECT DISTINCT
+        user_id,
+        DATE_FORMAT(executed_at, '%Y-%m') AS active_year_month
+    FROM trades
+),
+cohort_data_my AS (
+    SELECT
+        uc.cohort_year_month,
+        ua.active_year_month,
+        COUNT(DISTINCT ua.user_id)                           AS active_users
+    FROM user_cohorts_my uc
+    JOIN user_activity_my ua ON uc.user_id = ua.user_id
+    GROUP BY 1, 2
+),
+cohort_sizes_my AS (
+    SELECT cohort_year_month, COUNT(*) AS cohort_size
+    FROM user_cohorts_my
+    GROUP BY cohort_year_month
+)
+SELECT
+    cs.cohort_year_month,
+    cd.active_year_month,
+    cd.active_users,
+    cs.cohort_size,
+    ROUND(cd.active_users * 100.0 / cs.cohort_size, 2) AS retention_pct
+FROM cohort_data_my cd
+JOIN cohort_sizes_my cs USING (cohort_year_month)
+ORDER BY cs.cohort_year_month, cd.active_year, cd.active_month;
+-- By definition: a cohort is the set of users active in their first month
+-- Month-0 retention = active users in cohort month / cohort size = 100% always
+-- If your query shows Month-0 retention < 100%, one of these is wrong:
+-- 1. Cohort is defined as registration date, but activity is first transaction date
+--    (some users register but don't transact in the same month → Month 0 < 100%)
+-- 2. The activity table has missing data for the cohort month
+-- 3. Timezone misalignment: registration is in UTC+5:30, activity is in UTC
+--    → some users' first activity falls in the "wrong" calendar month after conversion
 -- Month-0 retention = active users in cohort month / cohort size = 100% always
 -- If your query shows Month-0 retention < 100%, one of these is wrong:
 -- 1. Cohort is defined as registration date, but activity is first transaction date
@@ -135,7 +224,6 @@ WITH cohort_members AS (
 retention AS (
     SELECT
         c.cohort_month,
-        DATEDIFF('month', c.cohort_month, DATE_TRUNC('month', t.txn_date)) AS month_num,
         COUNT(DISTINCT t.user_id) AS retained_users
     FROM cohort_members c
     JOIN transactions t ON c.user_id = t.user_id
@@ -170,7 +258,6 @@ SELECT
     u.user_id,
     u.registered_at,
     MIN(t.txn_date) AS first_txn_date,
-    DATEDIFF('day', u.registered_at, MIN(t.txn_date)) AS days_to_first_txn
 FROM users u
 LEFT JOIN transactions t ON u.user_id = t.user_id
 GROUP BY u.user_id, u.registered_at
@@ -243,7 +330,6 @@ WITH activity AS (
 )
 SELECT
     c.cohort_month,
-    DATEDIFF('month', c.cohort_month, a.active_month) AS month_num,
     COUNT(DISTINCT a.user_id) AS retained_users,
     SUM(COUNT(DISTINCT a.user_id)) OVER (PARTITION BY c.cohort_month) AS cohort_size,
     ROUND(100.0 * COUNT(DISTINCT a.user_id)
@@ -262,28 +348,20 @@ GROUP BY c.cohort_month, month_num;
 #### System-Level Fix
 
 ```sql
--- Delta Lake: user_cohorts table with incremental updates
 CREATE TABLE user_cohorts (
     user_id       STRING,
     cohort_month  DATE
 )
-USING DELTA;
-OPTIMIZE user_cohorts ZORDER BY (user_id);   -- fast lookup join on user_id
 
--- Redshift: user_cohorts co-located with transactions
 CREATE TABLE user_cohorts (user_id BIGINT, cohort_month DATE)
-DISTSTYLE KEY DISTKEY(user_id);   -- same distkey as transactions → co-located join
 
--- BigQuery: partition the cohort retention summary by cohort_month
 CREATE OR REPLACE TABLE cohort_retention_summary
 PARTITION BY cohort_month
-CLUSTER BY cohort_month, month_num
 AS SELECT ...;
 -- Dashboard query: reads only the partitions for cohort_months in the filter
 -- All aggregation is pre-done at ETL time
-```sql
-
 ---
 
 ---
+
 

@@ -3,8 +3,6 @@
 
 ### 32-P. NULL in Percentiles and Histograms
 
-```
-
 ```sql
 -- PERCENTILE_CONT / PERCENTILE_DISC ignore NULLs (like other aggregates)
 SELECT
@@ -48,15 +46,9 @@ GROUP BY 1
 ORDER BY 1;
 -- Always add an explicit NULL bucket — otherwise NULLs are silently lumped into ELSE (if any)
 -- and if there's no ELSE, NULL rows return NULL from CASE and GROUP BY puts them in the NULL group
-```
-
-```sql
-
 ---
 
 ### 32-Q. NULL in NTILE / Bucketing
-
-```
 
 ```sql
 -- NTILE distributes rows evenly across N buckets
@@ -88,15 +80,9 @@ SELECT
         )
     END AS quartile
 FROM loan_applications;
-```
-
-```sql
-
 ---
 
 ### 32-R. NULL in Cohort Analysis
-
-```
 
 ```sql
 -- User cohort = first transaction month
@@ -131,10 +117,6 @@ GROUP BY 1, 2;
 -- If you GROUP BY txn_cohort, the NULL cohort lumps ALL dormant users together
 -- regardless of when they registered — usually wrong
 -- Fix: group by reg_cohort for counts, and separately report activation rate
-```
-
-```sql
-
 ---
 
 ### 32-S. Full End-to-End Example — UPI Transaction Pipeline with NULL Everywhere
@@ -142,8 +124,6 @@ GROUP BY 1, 2;
 This example ties together every pattern. The scenario is a real Slice-type analytics query.
 
 **Context:** Daily report of UPI transaction health — volume, success rate, unmatched merchants, outstanding settlements, and top failure reasons.
-
-```
 
 ```sql
 WITH
@@ -177,7 +157,6 @@ with_lag AS (
     SELECT
         *,
         -- NULL settlement_date → days_to_settle is NULL (outstanding)
-        DATEDIFF('day', txn_date, settlement_date) AS days_to_settle,
 
         -- Running balance per user: treat NULL amounts as 0
         SUM(COALESCE(amount, 0)) OVER (
@@ -220,48 +199,4 @@ SELECT
 FROM with_lag
 GROUP BY txn_date
 ORDER BY txn_date DESC;
-```
-
-**NULL handling decisions made in this query:**
-
-| Decision | NULL Meaning | Handling |
-|----------|-------------|----------|
-| `status IS NULL` | In-flight / PENDING transaction | `COALESCE(status, 'PENDING')` |
-| `merchant_id IS NULL` | Anonymous / unregistered merchant | LEFT JOIN + `COALESCE(name, 'Anonymous')` |
-| `settlement_date IS NULL` | Not yet settled (outstanding) | Keep NULL; use `IS NULL` filter for report |
-| `amount IS NULL` | Amount not captured (data quality) | `COALESCE(amount, 0)` for running balance |
-| `LAG IS NULL` | First transaction in partition | CASE WHEN IS NULL = first transaction flag |
-| `days_to_settle IS NULL` | Outstanding (not yet settled) | AVG/PERCENTILE_CONT ignore — report separately |
-| Divide-by-zero in success_rate | No transactions in a day period | NULLIF denominator |
-
----
-
-### 32-T. NULL Quick Reference Card
-
-**The 7 NULL Rules you must be able to recite:**
-
-| # | Rule | Example |
-|---|------|---------|
-| 1 | Any comparison with NULL = UNKNOWN | `NULL = NULL` → UNKNOWN |
-| 2 | WHERE/HAVING only keep TRUE rows | `WHERE col != 'X'` excludes NULL rows |
-| 3 | NOT NULL = UNKNOWN (not TRUE) | `WHERE NOT (col = NULL)` excludes nothing |
-| 4 | Arithmetic with NULL = NULL | `100 + NULL = NULL` |
-| 5 | Aggregate functions ignore NULLs | `AVG(col)` divides by non-NULL count |
-| 6 | NOT IN with NULL in subquery = zero rows | Guard with `WHERE col IS NOT NULL` |
-| 7 | GROUP BY groups all NULLs together | NULL group appears unless explicitly filtered |
-
-**NULL function quick reference:**
-
-| Need | Function | Notes |
-|------|----------|-------|
-| Replace NULL with default | `COALESCE(a, default)` | Returns first non-NULL |
-| Prevent divide-by-zero | `NULLIF(n, 0)` | Returns NULL when n = 0 |
-| NULL-safe equality | `IS DISTINCT FROM` | TRUE when values differ, including NULL |
-| Control NULL sort position | `ORDER BY col NULLS LAST` | Not supported in MySQL/SQL Server |
-| NULL-safe inequality filter | `col IS DISTINCT FROM 'val'` | Includes NULL rows in results |
-| Forward-fill NULLs | `LAST_VALUE(col IGNORE NULLS)` | Snowflake/BigQuery/Spark; workaround in PG |
-| Carry forward in aggregates | `COALESCE(SUM(...), 0)` | Only when all inputs NULL |
-| Safe type casting | `TRY_CAST` / `SAFE_CAST` | Returns NULL instead of error |
-
----
 

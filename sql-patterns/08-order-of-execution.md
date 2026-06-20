@@ -18,8 +18,6 @@ HAVING      <group filter>
 ORDER BY    <sort columns>
 LIMIT       <row count>
 ```sql
-
-```sql
 -- Logical Execution Order:
 Step 1: FROM + JOINs
 Step 2: WHERE
@@ -62,7 +60,6 @@ flowchart TD
 | `DISTINCT` | 6.5 | SELECT output | — |
 | `ORDER BY` | 7 | SELECT aliases ✓ | — |
 | `LIMIT` / `TOP` / `FETCH FIRST` | 8 | — | — |
-| `QUALIFY` *(Snowflake/BQ/DuckDB)* | After 6 | Window function results | — |
 | `UNION / INTERSECT / EXCEPT` | Between queries | — | — |
 
 ### Critical Rule Implications with Examples
@@ -133,33 +130,8 @@ ORDER BY fee DESC;                -- works!
 
 **Rule 5 — GROUP BY usually cannot reference SELECT aliases (most engines)**
 
-```sql
--- WRONG in most SQL engines (GROUP BY runs before SELECT):
-SELECT DATE_TRUNC('month', executed_at) AS month, COUNT(*) AS trades
-FROM trades
-GROUP BY month;                   -- ERROR in PostgreSQL, Redshift, etc.
 
--- CORRECT — repeat the expression:
-GROUP BY DATE_TRUNC('month', executed_at);
 
--- NOTE: MySQL and BigQuery are exceptions — they allow GROUP BY aliases
-```
-
-**Rule 6 — QUALIFY (Snowflake, BigQuery, DuckDB): filter on window function results without a CTE**
-
-```sql
--- QUALIFY runs after SELECT (where window functions are computed)
--- Equivalent to wrapping in a CTE and using WHERE rn = 1
-
-SELECT *
-FROM trades
-QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY executed_at DESC) = 1;
-
--- Also useful for filtering on RANK, DENSE_RANK, etc.
-SELECT *
-FROM trades
-QUALIFY DENSE_RANK() OVER (PARTITION BY trading_pair ORDER BY trade_amount DESC) <= 3;
-```
 
 **Rule 7 — CTEs (WITH clause) execute before the main query**
 
@@ -205,4 +177,5 @@ ORDER BY user_id;            -- ORDER BY applies to the combined result set
 ---
 
 ---
+
 

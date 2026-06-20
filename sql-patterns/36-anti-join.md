@@ -26,8 +26,6 @@ Find rows in table A that have NO match in table B — the opposite of a regular
 
 ### Three equivalent approaches
 
-```
-
 ```sql
 -- Method 1: LEFT JOIN + IS NULL (best performance in most databases)
 SELECT u.user_id
@@ -118,10 +116,6 @@ WHERE NOT EXISTS (
 
 ```sql
 WHERE d.borrower_id = b.borrower_id   -- ← must be present
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -130,20 +124,8 @@ WHERE d.borrower_id = b.borrower_id   -- ← must be present
 
 NOT EXISTS with a large correlated subquery:
 
-```
-
 ```sql
 WHERE NOT EXISTS (SELECT 1 FROM defaults d WHERE d.borrower_id = b.borrower_id)
-```
-
-- Correlated subquery: for EACH row in `borrowers` (100M rows), run a lookup in `defaults`
-- If `defaults` is large (50M rows) and not indexed by `borrower_id`: O(N × M) = 5B lookups
-- In optimising engines (Postgres, Snowflake): converted to a hash anti-join automatically
-- In Spark (before Spark 3): correlated NOT EXISTS may not be optimised → O(N × M) nested loop
-
-#### Code-Level Fix
-
-```sql
 -- BEFORE: NOT EXISTS on large tables
 SELECT borrower_id FROM borrowers b
 WHERE NOT EXISTS (SELECT 1 FROM defaults d WHERE d.borrower_id = b.borrower_id);
@@ -153,7 +135,6 @@ SELECT b.borrower_id
 FROM borrowers b
 LEFT JOIN defaults d ON b.borrower_id = d.borrower_id
 WHERE d.borrower_id IS NULL;
--- Spark: generates a BroadcastHashJoin (if defaults is small) or SortMergeJoin anti-join
 -- Both are O(N + M) not O(N × M)
 
 -- FIX 2: Use EXCEPT for set anti-join (no correlated subquery at all)
@@ -172,7 +153,6 @@ SELECT DISTINCT borrower_id FROM defaults WHERE borrower_id IS NOT NULL;
 #### System-Level Fix
 
 ```sql
--- Delta Lake: bloom filter on defaults.borrower_id for fast anti-join
 ALTER TABLE defaults SET TBLPROPERTIES (
     'delta.bloomFilter.columns' = 'borrower_id',
     'delta.bloomFilter.fpp' = '0.001'
@@ -180,21 +160,13 @@ ALTER TABLE defaults SET TBLPROPERTIES (
 -- Anti-join probe: bloom filter check first → most non-defaulted borrowers filtered immediately
 -- Without bloom filter: reads Parquet row groups; with bloom filter: reads ~0.1% of row groups
 
--- Snowflake: search optimization for equality lookups in subqueries
 ALTER TABLE defaults ADD SEARCH OPTIMIZATION ON EQUALITY(borrower_id);
 -- NOT EXISTS correlated subquery: sub-millisecond lookup per borrower_id instead of full scan
 
--- Redshift: sort key + dist key alignment
 CREATE TABLE defaults (borrower_id BIGINT, ...)
-DISTSTYLE KEY DISTKEY(borrower_id)
-COMPOUND SORTKEY(borrower_id);
 -- NOT EXISTS / LEFT JOIN IS NULL anti-join:
--- borrowers and defaults both DISTKEY on borrower_id → co-located → no redistribution
-```
-
-```sql
-
 ---
 
 ---
+
 

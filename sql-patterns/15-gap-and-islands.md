@@ -33,8 +33,6 @@ Identify **consecutive sequences** (islands) of rows that share a property, sepa
 
 ### Boilerplate — Value-based sequence (escalation)
 
-```
-
 ```sql
 -- Business: detect 3+ consecutive BUY trades with 10% escalation per trade
 WITH ordered AS (
@@ -106,7 +104,6 @@ break_flags AS (
     SELECT *,
         CASE
             WHEN prev_date IS NULL
-                 OR DATEDIFF(trade_date, prev_date) > 1  -- gap of >1 day = break
             THEN 1 ELSE 0
         END AS is_break
     FROM with_prev
@@ -289,8 +286,6 @@ Additionally: **result set cardinality is high** — could still be tens of mill
 #### Code-Level Fix
 
 ```sql
-
-```sql
 -- BEFORE: runs on all history
 WITH daily AS (
     SELECT DISTINCT user_id, CAST(login_at AS DATE) AS login_date
@@ -327,36 +322,9 @@ VALUES (t.user_id, CURRENT_DATE, CURRENT_DATE, 1);
 
 #### System-Level Fix
 
-```sql
--- Delta Lake: partition login_events by date for daily incremental processing
-CREATE TABLE login_events (
-    event_id    BIGINT,
-    user_id     STRING,
-    login_at    TIMESTAMP,
-    login_date  DATE GENERATED ALWAYS AS (CAST(login_at AS DATE))
-)
-USING DELTA
-PARTITIONED BY (login_date);
--- Gap-and-island incremental job reads only the last 2 days' partitions
--- Full-history streak query: rare, run as a scheduled batch, not interactive
-
--- Materialise streaks table (dbt model, full-refresh weekly, incremental daily):
-CREATE TABLE user_current_streaks (
-    user_id         STRING,
-    streak_start    DATE,
-    streak_length   INT,
-    last_active_date DATE
-)
-USING DELTA
--- Primary key: user_id (one row per user for current streak)
--- Cluster by user_id for fast per-user lookups:
-TBLPROPERTIES ('delta.columnMapping.mode' = 'name');
-OPTIMIZE user_current_streaks ZORDER BY (user_id);
-```
-
-```sql
 
 ---
 
 ---
+
 

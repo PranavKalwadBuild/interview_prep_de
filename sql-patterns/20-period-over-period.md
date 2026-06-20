@@ -25,11 +25,36 @@ Compare a metric in the current period to the same metric in a prior period (pre
 
 ### Boilerplate — LAG approach
 
-```
-
-```sql
--- MoM trading volume comparison
+-- ANSI SQL approach: Extract year/month for grouping (most portable)
 WITH monthly_volume AS (
+    SELECT
+        (EXTRACT(YEAR FROM executed_at) * 100 + EXTRACT(MONTH FROM executed_at)) AS year_month,
+        EXTRACT(YEAR FROM executed_at) AS year,
+        EXTRACT(MONTH FROM executed_at) AS month,
+        trading_pair,
+        SUM(trade_amount)                AS total_volume
+    FROM trades
+    GROUP BY EXTRACT(YEAR FROM executed_at), EXTRACT(MONTH FROM executed_at), trading_pair
+)
+SELECT
+    year_month,
+    year,
+    month,
+    trading_pair,
+    total_volume,
+    LAG(total_volume, 1) OVER (
+        PARTITION BY trading_pair
+        ORDER BY year, month
+    ) AS prev_month_volume,
+    ROUND(
+        (total_volume - LAG(total_volume, 1) OVER (PARTITION BY trading_pair ORDER BY year, month))
+        / NULLIF(LAG(total_volume, 1) OVER (PARTITION BY trading_pair ORDER BY year, month), 0)
+        * 100, 2
+    ) AS mom_growth_pct
+FROM monthly_volume;
+
+-- PostgreSQL fallback: DATE_TRUNC for when you need timestamp values
+WITH monthly_volume_pg AS (
     SELECT
         DATE_TRUNC('month', executed_at) AS month,
         trading_pair,
@@ -50,15 +75,63 @@ SELECT
         / NULLIF(LAG(total_volume, 1) OVER (PARTITION BY trading_pair ORDER BY month), 0)
         * 100, 2
     ) AS mom_growth_pct
-FROM monthly_volume;
+FROM monthly_volume_pg;
 
--- YoY: use LAG with offset = 12 (months)
-LAG(total_volume, 12) OVER (PARTITION BY trading_pair ORDER BY month)
-```
+-- MySQL fallback: DATE_FORMAT for period grouping
+WITH monthly_volume_my AS (
+    SELECT
+        DATE_FORMAT(executed_at, '%Y-%m') AS year_month,
+        trading_pair,
+        SUM(trade_amount)                AS total_volume
+    FROM trades
+    GROUP BY 1, 2
+)
+SELECT
+    year_month,
+    trading_pair,
+    total_volume,
+    LAG(total_volume, 1) OVER (
+        PARTITION BY trading_pair
+        ORDER BY year_month
+    ) AS prev_month_volume,
+    ROUND(
+        (total_volume - LAG(total_volume, 1) OVER (PARTITION BY trading_pair ORDER BY year_month))
+        / NULLIF(LAG(total_volume, 1) OVER (PARTITION BY trading_pair ORDER BY year_month), 0)
+        * 100, 2
+    ) AS mom_growth_pct
+FROM monthly_volume_my;
+
+-- YoY: use LAG with offset = 12 (months) - works with all three approaches above
 
 ### Boilerplate — Self-join approach (more explicit)
 
-```sql
+-- ANSI SQL approach: Use year/month arithmetic
+SELECT
+    curr.year_month,
+    curr.trading_pair,
+    curr.total_volume                                       AS current_volume,
+    prev.total_volume                                       AS prev_volume,
+    (curr.total_volume - prev.total_volume) / prev.total_volume * 100 AS growth_pct
+FROM monthly_volume curr
+LEFT JOIN monthly_volume prev
+    ON  curr.trading_pair = prev.trading_pair
+    AND curr.year = prev.year + (curr.month - prev.month - 1) / 12
+    AND curr.month = ((prev.month - 1) % 12) + 1;
+
+-- Simpler ANSI approach for month-to-month (assuming no year boundary issues in data):
+SELECT
+    curr.year_month,
+    curr.trading_pair,
+    curr.total_volume                                       AS current_volume,
+    prev.total_volume                                       AS prev_volume,
+    (curr.total_volume - prev.total_volume) / prev.total_volume * 100 AS growth_pct
+FROM monthly_volume curr
+LEFT JOIN monthly_volume prev
+    ON  curr.trading_pair = prev.trading_pair
+    AND (curr.year = prev.year AND curr.month = prev.month + 1)
+    OR (curr.year = prev.year + 1 AND curr.month = 1 AND prev.month = 12);
+
+-- PostgreSQL fallback: DATE_TRUNC and INTERVAL
 SELECT
     curr.month,
     curr.trading_pair,
@@ -68,14 +141,80 @@ SELECT
 FROM monthly_volume curr
 LEFT JOIN monthly_volume prev
     ON  curr.trading_pair = prev.trading_pair
+    AND curr.month = prev.month + INTERVAL '1 month';
+
+-- MySQL fallback: DATE_FORMAT and DATE_ADD
+SELECT
+    curr.year_month,
+    curr.trading_pair,
+    curr.total_volume                                       AS current_volume,
+    prev.total_volume                                       AS prev_volume,
+    (curr.total_volume - prev.total_volume) / prev.total_volume * 100 AS growth_pct
+FROM monthly_volume curr
+LEFT JOIN monthly_volume prev
+    ON  curr.trading_pair = prev.trading_pair
     AND curr.month = DATE_ADD(prev.month, INTERVAL 1 MONTH);
-```
 
 ### Gotchas
 
-- Always use `NULLIF(denominator, 0)` to avoid division by zero
-- For YoY with monthly data, `LAG(col, 12)` only works if every month exists — use a date spine if there are gaps
-- `DATE_TRUNC('month', date)` vs `DATE_FORMAT(date, '%Y-%m')` — prefer `DATE_TRUNC` for portability
+- **Always use `NULLIF(denominator, 0)` to avoid division by zero**
+  
+  **Why it happens:** Division by zero results in runtime errors that can crash your query or return NULL depending on the database engine.
+  
+  **Examples of dangerous patterns:**
+  - `(current - previous) / previous * 100` when previous = 0
+  - `growth_rate = (new_value - old_value) / old_value` without zero check
+  - Calculating percentages where baseline can be zero (new users, initial inventory, etc.)
+  
+  **Solutions:**
+  - Always wrap denominators in `NULLIF(value, 0)` or equivalent
+  - Use `CASE` statements for more complex logic: `CASE WHEN previous = 0 THEN NULL ELSE (current - previous) / previous END`
+  - Consider returning 0% or NULL for growth when baseline is zero, depending on business meaning
+  
+  **Best practice:** Make NULLIF a habit whenever calculating growth rates, ratios, or percentages.
+
+- **For YoY with monthly data, `LAG(col, 12)` only works if every month exists — use a date spine if there are gaps**
+  
+  **Why it happens:** LAG operates on the actual result set, not on a continuous time series. Missing months cause LAG to skip over gaps.
+  
+  **Examples of misleading results:**
+  - If February data is missing, March's LAG(1) will return January's value (comparing to 2 months ago)
+  - For YoY: if any month in the previous year is missing, the LAG(12) comparison becomes inaccurate
+  - Seasonal businesses may appear to have abnormal growth/slump due to skipped periods
+  
+  **Detection techniques:**
+  - Check for gaps: `SELECT month, LAG(month) OVER (ORDER BY month) AS prev_month FROM ...`
+  - Look for unexpected jumps in sequential values
+  - Compare row count to expected number of periods in date range
+  
+  **Solutions:**
+  - Generate a complete date spine using recursive CTEs or calendar tables
+  - Left join your aggregated data to the date spine to fill missing periods with zeros
+  - Use time-series aware functions when available (timescaledb, etc.)
+  
+  **Best practice:** Always validate temporal continuity before relying on LAG/LEAD for period-over-period calculations.
+
+- **`DATE_TRUNC('month', date)` vs `DATE_FORMAT(date, '%Y-%m')` — prefer `DATE_TRUNC` for portability**
+  
+  **Why it happens:** Different databases implement date truncation/formatting differently, leading to compatibility issues.
+  
+  **Engine-specific behaviors:**
+  - PostgreSQL: `DATE_TRUNC` returns timestamp, `TO_CHAR` returns string
+  - MySQL: `DATE_FORMAT` returns string, no direct DATE_TRUNC equivalent
+  - SQLite: Uses `strftime()` for both operations
+  - Oracle: `TRUNC()` function for dates, `TO_CHAR()` for formatting
+  
+  **Portability issues:**
+  - String comparison vs timestamp comparison can yield different results
+  - Timezone handling varies between formatting and truncation functions
+  - Performance characteristics differ significantly between approaches
+  
+  **Recommended approach:**
+  1. Use ANSI SQL methods first (EXTRACT year/month) for grouping
+  2. If timestamp values are needed, use engine-specific fallbacks with clear labeling
+  3. Document which approach you chose and why in your code comments
+  4. Consider creating database-specific views or functions to abstract the differences
+
 
 ### Edge Cases
 
@@ -123,13 +262,6 @@ SELECT s.month,
 FROM spine s LEFT JOIN monthly m ON s.month = m.month
 ORDER BY s.month;
 -- Feb now exists with revenue = 0; March's LAG correctly points to February
-```
-
-#### Edge 10-B: YoY comparison using DATEADD — fiscal vs calendar year
-
-**Problem:**
-
-```sql
 -- Calendar year YoY: compare 2024-Q1 to 2023-Q1
 -- This is straightforward. But fiscal year YoY (FY starting April 1) is different.
 
@@ -181,8 +313,6 @@ MoM growth via LAG on a full monthly revenue CTE: the CTE itself requires a full
 #### Code-Level Fix
 
 ```sql
-
-```sql
 -- BEFORE: ad-hoc MoM on full transaction history
 WITH monthly AS (
     SELECT DATE_TRUNC('month', txn_date) AS month, SUM(amount) AS revenue
@@ -223,35 +353,9 @@ LEFT JOIN monthly_metrics py
 
 #### System-Level Fix
 
-```sql
--- Redshift: monthly_metrics table for BI layer
-CREATE TABLE monthly_metrics (
-    metric_date DATE,
-    metric_name VARCHAR(50),
-    metric_value DECIMAL(20,2)
-)
-DISTSTYLE ALL          -- tiny table; broadcast to all nodes
-SORTKEY (metric_date, metric_name);
-
--- Populate from the large fact table ONCE per month:
-INSERT INTO monthly_metrics
-SELECT DATE_TRUNC('month', txn_date)::DATE, 'txn_revenue', SUM(amount)
-FROM transactions WHERE txn_date >= DATE_TRUNC('month', CURRENT_DATE)
-GROUP BY 1, 2;
-
--- All MoM/YoY queries run on monthly_metrics (36-120 rows) not transactions (800M rows)
--- Redshift compound sort key: date filter + metric_name filter both use zone maps
-
--- BigQuery: clustered summary table for pre-aggregated metrics
-CREATE OR REPLACE TABLE monthly_metrics
-CLUSTER BY metric_name, metric_date
-AS SELECT ...;
--- Queries filtering on metric_name: cluster pruning reads only relevant blocks
-```
-
-```sql
 
 ---
 
 ---
+
 

@@ -3,8 +3,6 @@
 
 ### 32-I. NULL in Conditional Aggregation / CASE WHEN
 
-```
-
 ```sql
 -- CASE WHEN with NULL conditions
 
@@ -38,15 +36,9 @@ COUNT(CASE WHEN kyc_status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_count
 -- CORRECT:
 COUNT(CASE WHEN kyc_status = 'APPROVED' THEN 1 END) AS approved_count
 -- Only counts rows where condition is TRUE (ELSE NULL is implicit)
-```
-
-```sql
-
 ---
 
 ### 32-J. NULL in Set Operations
-
-```
 
 ```sql
 -- UNION deduplication treats NULLs as equal:
@@ -75,18 +67,11 @@ SELECT txn_id, amount, status FROM dwh_upi_transactions;
 -- INTERSECT with NULLs:
 SELECT NULL INTERSECT SELECT NULL;
 -- Result: one row with NULL (NULL intersects with NULL — treated as equal)
-```
-
-```sql
-
 ---
 
 ### 32-K. NULL in String Aggregation
 
-```
-
 ```sql
--- STRING_AGG (PostgreSQL/Snowflake/BigQuery) ignores NULLs by default:
 SELECT
     dept_id,
     STRING_AGG(employee_name, ', ' ORDER BY employee_name) AS employee_list
@@ -102,7 +87,6 @@ STRING_AGG(COALESCE(employee_name, 'Unknown'), ', ' ORDER BY employee_name)
 GROUP_CONCAT(employee_name ORDER BY employee_name SEPARATOR ', ')
 -- Same behaviour — NULLs silently dropped
 
--- Oracle LISTAGG — NULLs silently dropped:
 LISTAGG(employee_name, ', ') WITHIN GROUP (ORDER BY employee_name)
 
 -- The ONLY way to include NULL representation is COALESCE before aggregation.
@@ -117,15 +101,9 @@ SELECT
     STRING_AGG(COALESCE(employee_name, '[NULL]'), ', ') AS employee_list
 FROM employees
 GROUP BY dept_id;
-```
-
-```sql
-
 ---
 
 ### 32-L. NULL in Recursive CTEs
-
-```
 
 ```sql
 -- Org hierarchy — NULL manager_id means root (CEO)
@@ -164,15 +142,9 @@ WITH RECURSIVE referral_chain AS (
     WHERE rc.referred_by IS NOT NULL  -- stop recursion when referred_by is NULL (organic)
 )
 SELECT * FROM referral_chain;
-```
-
-```sql
-
 ---
 
 ### 32-M. NULL in Date Spine / Forward-Fill
-
-```
 
 ```sql
 -- Date spine joined to sparse event data — NULLs appear on no-event days
@@ -211,15 +183,9 @@ FROM with_scores;
 -- TRAP: if a borrower has NO credit score events at all,
 -- filled_credit_score is NULL for all their rows — IGNORE NULLS has nothing to carry forward.
 -- Handle with COALESCE(filled_credit_score, default_score) or a separate business rule.
-```
-
-```sql
-
 ---
 
 ### 32-N. NULL in Funnel Analysis
-
-```
 
 ```sql
 -- Loan application funnel:
@@ -250,21 +216,13 @@ SELECT
     application_id,
     app_submitted_at,
     kyc_approved_at,
-    -- NULL if not disbursed (DATEDIFF of NULL = NULL — correct)
-    DATEDIFF('day', app_submitted_at, disbursed_at) AS days_to_disburse,
     -- Flag if still in funnel (not abandoned):
     CASE WHEN disbursed_at IS NULL AND app_submitted_at > CURRENT_DATE - 30
          THEN 'Active' ELSE 'Stalled/Complete' END AS funnel_status
 FROM loan_applications;
-```
-
-```sql
-
 ---
 
 ### 32-O. NULL in Data Quality Checks
-
-```
 
 ```sql
 -- Comprehensive NULL audit — essential for every new data source
@@ -306,9 +264,6 @@ SELECT region, COUNT(*) AS rows, COUNT(txn_amount) AS non_null_amounts
 FROM transactions
 GROUP BY region
 HAVING COUNT(txn_amount) = 0;  -- entire region has no amounts → data issue
-```
-
-```sql
-
 ---
+
 

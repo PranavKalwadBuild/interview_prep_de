@@ -27,8 +27,6 @@ n
 
 ### Boilerplate
 
-```
-
 ```sql
 -- Pattern: First value in group
 SELECT
@@ -104,18 +102,8 @@ SELECT
 FROM user_events;
 -- If the first event has credit_tier IS NULL (signup event, tier not yet assigned)
 -- → first_credit_tier = NULL for ALL rows in that partition
-```
-
-**Fix — use FIRST_VALUE with IGNORE NULLS (Snowflake/BigQuery/DuckDB/Spark):**
-
-```sql
--- FIX — use FIRST_VALUE with IGNORE NULLS (Snowflake/BigQuery/DuckDB/Spark):
 FIRST_VALUE(credit_tier IGNORE NULLS) OVER (...)
 -- Returns the first NON-NULL credit_tier in the partition
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -125,8 +113,6 @@ FIRST_VALUE(credit_tier IGNORE NULLS) OVER (...)
 Same shuffle + sort cost as LAG/LEAD. The additional problem: `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` forces the engine to see the **entire partition** before returning any result — no streaming, no early termination. For a user with 10M events, the entire 10M row partition is held in memory before the first output row is emitted.
 
 #### Code-Level Fix
-
-```
 
 ```sql
 -- BEFORE: FIRST_VALUE on 800M rows — holds entire user partition in memory
@@ -169,13 +155,9 @@ SELECT user_id,
            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
        ) AS original_tier
 FROM user_events
-QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY event_date) = 1;
 -- This runs once at ETL time; query time cost = a simple lookup join
-```
-
-```sql
-
 ---
 
 ---
+
 

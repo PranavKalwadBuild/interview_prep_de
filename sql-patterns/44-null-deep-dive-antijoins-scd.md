@@ -7,8 +7,6 @@ This is the pattern that causes the most silent data bugs in production SQL. Kno
 
 **The setup:** You want to find rows in table A that have no corresponding row in table B.
 
-```
-
 ```sql
 -- Scenario: find borrowers who have NEVER defaulted
 
@@ -62,17 +60,11 @@ WHERE d.borrower_id IS NULL;
 -- NOT IN must evaluate the ENTIRE subquery result first, then compare each value
 -- For large tables: NOT EXISTS is faster
 -- For filtered subqueries (WHERE subquery is small): all three are similar
-```
-
-```sql
-
 ---
 
 ### 32-E. NULL in Gap-and-Island / Sessionization
 
 #### Null dates break streak detection
-
-```
 
 ```sql
 -- Consecutive trading day streak — gap-and-island pattern
@@ -128,17 +120,11 @@ WHERE event_at IS NOT NULL;  -- filter NULL timestamps before session logic
 -- What happens if you don't filter NULL event_at:
 -- ORDER BY event_at with NULLs: position depends on engine (NULLS FIRST/LAST varies)
 -- LAG of a NULL = NULL; gap calculation: NULL - NULL = NULL = UNKNOWN → wrong session boundaries
-```
-
-```sql
-
 ---
 
 ### 32-F. NULL in Deduplication
 
 #### NULL in the dedup key — NULLs never deduplicate each other
-
-```
 
 ```sql
 -- Dedup on (txn_id, status) — keep latest record per transaction
@@ -178,17 +164,11 @@ MD5(CONCAT(
     COALESCE(CAST(amount AS VARCHAR), 'NULL_AMT'), '|',
     COALESCE(CAST(txn_date AS VARCHAR), 'NULL_DATE')
 )) AS row_hash
-```
-
-```sql
-
 ---
 
 ### 32-G. NULL in SCD Type 2
 
 SCD2 tables use NULL extensively and correctly — but misunderstanding that leads to broken queries.
-
-```
 
 ```sql
 -- SCD2 table: dim_credit_tier
@@ -237,15 +217,9 @@ WHERE s.new_tier IS DISTINCT FROM d.credit_tier;
 WHERE s.new_tier != d.credit_tier  -- if either is NULL → UNKNOWN → change NOT detected!
 -- This would miss: NULL → 'Bronze' (new credit assignment)
 -- And miss: 'Gold' → NULL (credit line closed)
-```
-
-```sql
-
 ---
 
 ### 32-H. NULL in Period-over-Period / LAG
-
-```
 
 ```sql
 -- Monthly revenue with MoM growth
@@ -278,9 +252,6 @@ SELECT
     CASE WHEN revenue IS NULL THEN TRUE ELSE FALSE END AS is_data_gap
 FROM monthly
 ORDER BY month;
-```
-
-```sql
-
 ---
+
 

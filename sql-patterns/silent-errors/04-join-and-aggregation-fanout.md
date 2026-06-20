@@ -325,7 +325,6 @@ JOIN orders o ON o.user_id = u.user_id
 JOIN products p ON o.product_id = p.product_id   -- explicit, hard to miss
 ```
 
-**Real-world trigger:** Legacy reporting query migrated from an older SQL dialect that used comma-join syntax. One JOIN condition was dropped during migration. The query ran for 8 hours and returned 500M rows instead of 50K. The alert was a Snowflake credit exhaustion notification, not an incorrect result warning.
 
 ---
 

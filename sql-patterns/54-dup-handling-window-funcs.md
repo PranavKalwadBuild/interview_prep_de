@@ -159,37 +159,6 @@ FROM cleaned;
 
 #### Problem — Duplicates at the boundary make FIRST_VALUE non-deterministic
 
-```sql
--- Two rows with the same earliest timestamp → FIRST_VALUE picks one arbitrarily.
-SELECT
-    user_id,
-    FIRST_VALUE(product_id) OVER (
-        PARTITION BY user_id ORDER BY purchase_ts
-    ) AS first_product_purchased
-FROM purchases;
--- If two rows share the minimum purchase_ts, FIRST_VALUE is engine-dependent.
-
--- FIX: break the tie with a unique column
-SELECT
-    user_id,
-    FIRST_VALUE(product_id) OVER (
-        PARTITION BY user_id ORDER BY purchase_ts ASC, purchase_id ASC
-    ) AS first_product_purchased
-FROM purchases;
-
--- Alternatively: aggregate to guaranteed unique before the window
-WITH first_purchase AS (
-    SELECT user_id, MIN(purchase_ts) AS first_ts
-    FROM purchases
-    GROUP BY user_id
-)
-SELECT p.user_id, p.product_id AS first_product_purchased
-FROM purchases p
-JOIN first_purchase fp
-    ON p.user_id = fp.user_id AND p.purchase_ts = fp.first_ts
-QUALIFY ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.purchase_id) = 1;
--- QUALIFY handles the residual tie on purchase_ts via purchase_id
-```
 
 ---
 
@@ -244,44 +213,7 @@ GROUP BY user_id, island_id;
 
 #### Problem — Duplicate events inflate session event count and corrupt session boundaries
 
-```sql
--- A click event is delivered twice (at-least-once Kafka delivery).
--- The duplicate has the same event_ts as the original.
--- LAG-based session gap detection computes gap = 0 for the duplicate → it joins
--- the prior session instead of starting a new one. Session length is inflated.
-
--- FIX 1: dedup by event_id before sessionization
-WITH deduped_events AS (
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY loaded_at DESC) AS rn
-    FROM clickstream
-),
-cleaned AS (
-    SELECT * FROM deduped_events WHERE rn = 1
-),
--- Now apply sessionization on cleaned
-gaps AS (
-    SELECT *,
-        LAG(event_ts) OVER (PARTITION BY user_id ORDER BY event_ts) AS prev_ts
-    FROM cleaned
-),
-sessions AS (
-    SELECT *,
-        SUM(CASE WHEN DATEDIFF('minute', prev_ts, event_ts) > 30 OR prev_ts IS NULL
-                 THEN 1 ELSE 0 END)
-            OVER (PARTITION BY user_id ORDER BY event_ts
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id
-    FROM gaps
-)
-SELECT * FROM sessions;
-
--- FIX 2: if event_id is unavailable, dedup on (user_id, event_type, event_ts)
-WITH deduped_events AS (
-    SELECT DISTINCT user_id, event_type, event_ts, page_url
-    FROM clickstream
-)
-...
-```
 
 ---
+
 

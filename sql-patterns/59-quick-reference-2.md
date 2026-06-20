@@ -65,8 +65,6 @@ SELECT dept_id, AVG(salary) FROM employees GROUP BY dept_id HAVING is_active = T
 
 -- GOOD (filter first, then aggregate):
 SELECT dept_id, AVG(salary) FROM employees WHERE is_active = TRUE GROUP BY dept_id;
-```sql
-
 ---
 
 ### Q13. Find Missing Numbers / Gaps in a Sequence
@@ -103,8 +101,6 @@ JOIN orders o2 ON o2.order_id = (
     SELECT MIN(order_id) FROM orders WHERE order_id > o1.order_id
 )
 WHERE o2.order_id - o1.order_id > 1;
-```sql
-
 ---
 
 ### Q14. Second Most Recent Record per User
@@ -127,8 +123,6 @@ WITH ranked AS (
 SELECT user_id, order_id, order_date, amount
 FROM ranked
 WHERE rn = 2;
-```sql
-
 ---
 
 ### Q15. Cumulative Distribution — Percentile Rank
@@ -143,8 +137,6 @@ SELECT
     CUME_DIST()    OVER (ORDER BY salary)  AS cume_dist        -- fraction of rows ≤ current
 FROM employees
 ORDER BY salary DESC;
-```sql
-
 ---
 
 ### Q16. String Aggregation — Concatenate Values within a Group
@@ -152,19 +144,15 @@ ORDER BY salary DESC;
 **The question:** "For each department, list all employee names as a comma-separated string."
 
 ```sql
--- PostgreSQL / Snowflake / BigQuery
 SELECT dept_id,
        STRING_AGG(full_name, ', ' ORDER BY full_name) AS employee_list
 FROM employees
 GROUP BY dept_id;
 
--- MySQL / Spark SQL
 SELECT dept_id,
        GROUP_CONCAT(full_name ORDER BY full_name SEPARATOR ', ') AS employee_list
 FROM employees
 GROUP BY dept_id;
-```sql
-
 ---
 
 ### Q17. Median Salary per Department
@@ -172,7 +160,6 @@ GROUP BY dept_id;
 **The question:** "Find the median salary in each department."
 
 ```sql
--- PostgreSQL / Snowflake / BigQuery
 SELECT
     dept_id,
     PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary) AS median_salary
@@ -192,8 +179,6 @@ SELECT dept_id, AVG(salary) AS median_salary
 FROM ranked
 WHERE rn IN (FLOOR((total + 1) / 2.0), CEIL((total + 1) / 2.0))
 GROUP BY dept_id;
-```sql
-
 ---
 
 ### Q18. INNER JOIN vs LEFT JOIN — Practical Difference
@@ -213,8 +198,6 @@ FROM departments d
 LEFT JOIN employees e ON d.dept_id = e.dept_id
 GROUP BY d.dept_name
 ORDER BY headcount DESC;
-```sql
-
 ---
 
 ### Q19. Find the Most Recent Record per Entity
@@ -242,8 +225,6 @@ JOIN (
     GROUP BY customer_id
 ) latest ON o.customer_id = latest.customer_id
         AND o.order_date = latest.latest_date;
-```sql
-
 ---
 
 ### Q20. Transactions Above a User's Own Average
@@ -251,3 +232,4 @@ JOIN (
 **The question:** "Find all transactions where the amount is greater than that user's average transaction."
 
 ```sql
+

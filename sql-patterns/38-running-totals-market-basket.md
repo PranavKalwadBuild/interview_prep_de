@@ -17,8 +17,6 @@ Compute a metric that accumulates over time — running sum, running count, cumu
 
 ### Boilerplate — Cumulative distinct users (new user growth curve)
 
-```
-
 ```sql
 -- How many unique users had traded by each date?
 WITH daily_first_trades AS (
@@ -80,10 +78,6 @@ WITH RECURSIVE balance_calc AS (
 SELECT * FROM balance_calc;
 -- NOTE: recursive CTEs for running totals with logic are expensive on large tables
 -- For large-scale systems, this is better handled in streaming (Flink, Kafka Streams)
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -115,8 +109,6 @@ Find items that frequently appear together — products bought together, trading
 - **Marketing:** Ad creatives that are clicked together in the same session (fatigue analysis); campaigns that co-convert the same users (overlap for budget optimisation)
 
 ### Boilerplate
-
-```
 
 ```sql
 -- Users who traded both BTC_INR and ETH_INR
@@ -199,10 +191,6 @@ JOIN filtered_items b ON a.order_id = b.order_id AND a.product_id < b.product_id
 GROUP BY a.product_id, b.product_id
 HAVING COUNT(*) > 50
 ORDER BY co_count DESC;
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -218,14 +206,11 @@ Self-join for co-occurrence on 10M orders with average 10 items each:
 
 #### Code-Level Fix
 
-```
-
 ```sql
 -- FIX: Use sparse co-occurrence matrix approach
 -- Step 1: per product, compute the set of orders it appears in → inverted index
 WITH product_orders AS (
     SELECT product_id,
-        COLLECT_SET(order_id) AS order_set,   -- Spark; use ARRAY_AGG in others
         COUNT(DISTINCT order_id) AS order_count
     FROM order_items
     GROUP BY product_id
@@ -257,18 +242,13 @@ CREATE TABLE product_cooccurrence (
     lift           DECIMAL(8,4),  -- co_count / (freq_a × freq_b) — recommendation signal
     computed_date  DATE
 )
-USING DELTA
 PARTITIONED BY (computed_date)
 TBLPROPERTIES ('delta.bloomFilter.columns' = 'product_a');
-OPTIMIZE product_cooccurrence ZORDER BY (product_a, co_count);
 -- Recommendation query: SELECT product_b, lift FROM product_cooccurrence
 --                       WHERE product_a = 'P001' ORDER BY lift DESC LIMIT 10
 -- Sub-second; no join at query time
-```
-
-```sql
-
 ---
 
 ---
+
 

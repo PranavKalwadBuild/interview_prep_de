@@ -18,8 +18,6 @@ FROM (
     FROM transactions
 ) t
 WHERE amount > user_avg;
-```sql
-
 ---
 
 ### Q21. Count of Events in a Sliding 7-Day Window
@@ -37,8 +35,6 @@ FROM (
     SELECT DISTINCT order_date FROM orders
 ) daily
 ORDER BY order_date;
-```sql
-
 ---
 
 ### Q22. Compare Two Tables for Differences (Data Reconciliation)
@@ -71,8 +67,6 @@ FROM table_a a
 FULL OUTER JOIN table_b b ON a.id = b.id
 WHERE a.col1 IS DISTINCT FROM b.col1   -- PostgreSQL syntax for NULL-safe compare
    OR a.id IS NULL OR b.id IS NULL;
-```sql
-
 ---
 
 ### Q23. Customers Active in Both Periods (Retention)
@@ -92,28 +86,6 @@ JOIN orders q2 ON q1.customer_id = q2.customer_id
 WHERE q1.order_date BETWEEN '2024-01-01' AND '2024-03-31'
   AND q2.order_date BETWEEN '2024-04-01' AND '2024-06-30'
 GROUP BY q1.customer_id;
-```sql
-
----
-
-### Q24. SQL Performance Optimisation — What to Say in an Interview
-
-**The question:** "How would you optimise a slow SQL query?"
-
-A structured answer:
-
-1. **Check the query plan** — `EXPLAIN` / `EXPLAIN ANALYZE` (PostgreSQL), `EXPLAIN` (MySQL/Spark), `Query Profile` (Snowflake)
-2. **Avoid `SELECT *`** — fetch only the columns you need to reduce I/O
-3. **Push filters early** — filter in `WHERE` before `JOIN`; don't filter in `HAVING` what can be filtered in `WHERE`
-4. **Index the right columns** — columns in `WHERE`, `JOIN ON`, and high-cardinality `ORDER BY`
-5. **Avoid functions on indexed columns in WHERE** — `WHERE YEAR(order_date) = 2024` can't use an index; use `WHERE order_date >= '2024-01-01' AND order_date < '2025-01-01'`
-6. **Use `EXISTS` over `IN` with large subqueries** — `EXISTS` short-circuits on the first match
-7. **Materialise intermediate results** — use CTEs or temp tables to avoid re-scanning the same data
-8. **Partition pruning** — if the table is partitioned by date, always filter on the partition column
-9. **Avoid `DISTINCT` on large result sets** — investigate why duplicates exist and fix the root cause
-10. **Use approximate functions where precision isn't required** — `APPROX_COUNT_DISTINCT`, `APPROX_PERCENTILE`
-
-```sql
 -- Slow: function on column prevents index use
 WHERE YEAR(order_date) = 2024
 
@@ -128,8 +100,6 @@ WHERE amount > (SELECT AVG(amount) FROM orders WHERE customer_id = o.customer_id
 SELECT * FROM (
     SELECT *, AVG(amount) OVER (PARTITION BY customer_id) AS avg_amount FROM orders
 ) t WHERE amount > avg_amount;
-```sql
-
 ---
 
 ---
@@ -195,6 +165,5 @@ SUM/AVG/COUNT/MIN/MAX -- aggregate over window
 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW    -- cumulative
 ROWS BETWEEN 6 PRECEDING AND CURRENT ROW            -- rolling 7 rows
 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING  -- whole partition
-```sql
-
 ---
+

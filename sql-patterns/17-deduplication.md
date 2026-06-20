@@ -25,8 +25,6 @@ Remove duplicate rows, keeping one record per entity based on a rule (e.g., late
 
 ### Boilerplate — ROW_NUMBER method (most versatile)
 
-```
-
 ```sql
 -- Keep latest record per trade_id
 WITH deduped AS (
@@ -57,24 +55,7 @@ INNER JOIN latest l
     AND r.ingested_at = l.latest_ingested_at;
 ```
 
-### Boilerplate — QUALIFY (Snowflake / BigQuery / DuckDB)
-
-```sql
--- Snowflake-style — cleaner syntax
-SELECT *
-FROM raw_trades
-QUALIFY ROW_NUMBER() OVER (PARTITION BY trade_id ORDER BY ingested_at DESC) = 1;
-```
-
-### Gotchas
-
-- `DISTINCT` only works when ALL columns are identical. If even one column differs, `DISTINCT` won't deduplicate.
-- When two rows have the same max timestamp (tie), `ROW_NUMBER` picks one arbitrarily. Add a secondary sort key (e.g., `ORDER BY ingested_at DESC, created_at DESC`) for determinism.
-- `QUALIFY` is not standard SQL — check if your target DB supports it
-
-### Edge Cases
-
-#### Edge 7-A: Multiple rows with identical "latest" timestamps — non-deterministic winner
+#### Edge 7-A: Tied timestamps make dedup non-deterministic
 
 **Problem:**
 
@@ -194,101 +175,48 @@ SELECT * FROM deduped WHERE rn = 1;
 
 `ROW_NUMBER() OVER (PARTITION BY txn_id ORDER BY updated_at DESC)` on 1B rows:
 
-- Full shuffle by `txn_id` across all nodes
-- For a CDC table with constant updates to the same `txn_id`: **data skew** — popular transactions have thousands of versions → 1 executor does all the work
-- DELETE on a table after ROW_NUMBER dedup: secondary full table scan for the DELETE
+- Every row for the same `txn_id` must be compared inside one logical partition.
+- Hot keys create skew: one transaction or account with many versions can dominate runtime.
+- Deleting duplicates after ranking usually causes a second full-table write path.
 
 #### Code-Level Fix
 
 ```sql
-
-```sql
--- BEFORE: full-history dedup on 1B row CDC table
-WITH ranked AS (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY txn_id ORDER BY updated_at DESC) AS rn
-    FROM raw_transactions_cdc   -- 1B rows (many versions per txn_id)
+-- Keep the source bounded before ranking.
+WITH recent_versions AS (
+    SELECT *
+    FROM raw_transactions
+    WHERE ingested_at >= CURRENT_DATE - INTERVAL '30' DAY
+),
+ranked AS (
+    SELECT *,
+        ROW_NUMBER() OVER (
+            PARTITION BY txn_id
+            ORDER BY updated_at DESC, source_priority ASC, ingested_at DESC
+        ) AS rn
+    FROM recent_versions
 )
-SELECT * FROM ranked WHERE rn = 1;  -- 800M rows returned (some txn_ids deduplicated)
-
--- FIX 1: Use MERGE-based dedup (replace, not append)
--- At ingestion: MERGE new CDC records into a deduplicated target table
--- The target table is always deduplicated; no full-history ROW_NUMBER needed
-MERGE INTO transactions_deduped t
-USING (
-    SELECT txn_id, amount, status, updated_at,
-        ROW_NUMBER() OVER (PARTITION BY txn_id ORDER BY updated_at DESC) AS rn
-    FROM new_cdc_batch     -- only TODAY's batch: 2M rows, not 1B
-    WHERE rn = 1
-) s ON t.txn_id = s.txn_id
-WHEN MATCHED AND s.updated_at > t.updated_at THEN UPDATE SET ...
-WHEN NOT MATCHED THEN INSERT ...;
--- Full-history dedup never needed — target is always current
-
--- FIX 2: Delta Lake MERGE with delete semantics (for D operations in CDC):
-MERGE INTO transactions_deduped t
-USING new_cdc_batch s ON t.txn_id = s.txn_id
-WHEN MATCHED AND s.op = 'D' THEN DELETE
-WHEN MATCHED AND s.op = 'U' THEN UPDATE SET t.amount = s.amount, t.updated_at = s.updated_at
-WHEN NOT MATCHED AND s.op = 'I' THEN INSERT *;
--- Delta Lake MERGE: uses transaction log + data skipping to process only affected files
--- On 1B row table with 2M changed rows: touches ~2% of files, not 100%
-
--- FIX 3: If full-history dedup is unavoidable (one-time backfill):
--- Repartition by txn_id to control skew, then apply ROW_NUMBER per partition
--- Spark:
-spark.sql("""
-    SELECT * FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY txn_id ORDER BY updated_at DESC) AS rn
-        FROM raw_transactions_cdc
-    ) WHERE rn = 1
-""")
-.repartition(2000, col("txn_id"))  -- ensure even distribution, control partition size
-.write.format("delta").mode("overwrite").save("s3://data/transactions_deduped")
+SELECT *
+FROM ranked
+WHERE rn = 1;
 ```
 
 #### System-Level Fix
 
 ```sql
--- Delta Lake: configure for CDC ingestion patterns
-CREATE TABLE transactions_deduped (
-    txn_id      STRING NOT NULL,
-    user_id     STRING,
-    amount      DECIMAL(15,2),
-    status      VARCHAR(20),
-    updated_at  TIMESTAMP
-)
-USING DELTA
-PARTITIONED BY (DATE(updated_at))    -- date partition for incremental processing
-TBLPROPERTIES (
-    'delta.enableChangeDataFeed' = 'true',  -- CDF: track changes for downstream
-    'delta.deletedFileRetentionDuration' = '7 days',
-    'delta.logRetentionDuration' = '30 days',
-    'delta.autoOptimize.optimizeWrite' = 'true',  -- auto-compact on write
-    'delta.dataSkippingNumIndexedCols' = '4'      -- index txn_id, user_id, status, updated_at
-);
-
--- Bloom filter on txn_id for MERGE lookup acceleration:
-ALTER TABLE transactions_deduped SET TBLPROPERTIES (
-    'delta.bloomFilter.columns' = 'txn_id',
-    'delta.bloomFilter.fpp'     = '0.001'
-);
--- MERGE target lookup: bloom filter + data skipping → reads 1-5 files instead of 1000+
-
--- Snowflake: set up a stream on the staging table → merge from stream only
-CREATE STREAM cdc_stream ON TABLE raw_transactions_cdc;
--- Stream contains only rows ADDED since the last consumption
--- Merge only those rows into the deduplicated target
-CREATE TASK dedup_task
-  WAREHOUSE = etl_wh
-  SCHEDULE = '5 MINUTE'
-AS
-MERGE INTO transactions_deduped t
-USING (SELECT * FROM cdc_stream) s ON t.txn_id = s.txn_id
-WHEN MATCHED THEN UPDATE SET t.amount = s.amount, t.updated_at = s.updated_at
-WHEN NOT MATCHED THEN INSERT (txn_id, user_id, amount, updated_at) VALUES (...);
+-- Maintain a current-state table instead of ranking the full history for every query.
+MERGE INTO current_transactions AS target
+USING staged_transactions AS source
+    ON target.txn_id = source.txn_id
+WHEN MATCHED AND source.updated_at > target.updated_at THEN
+    UPDATE SET
+        amount = source.amount,
+        status = source.status,
+        updated_at = source.updated_at
+WHEN NOT MATCHED THEN
+    INSERT (txn_id, amount, status, updated_at)
+    VALUES (source.txn_id, source.amount, source.status, source.updated_at);
 ```
-
-```sql
 
 ---
 

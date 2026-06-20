@@ -177,48 +177,6 @@ SUM(amount) OVER (
 
 When you intentionally use RANGE (for time-distance windows), it imposes constraints that ROWS does not.
 
-```sql
--- CONSTRAINT 1: RANGE with a numeric offset requires exactly ONE ORDER BY expression.
--- This fails:
-SUM(amount) OVER (
-    ORDER BY txn_date, txn_id          -- two ORDER BY cols
-    RANGE BETWEEN 7 PRECEDING AND CURRENT ROW   -- ERROR in most engines
-)
-
--- CONSTRAINT 2: the ORDER BY column must be numeric or date — not VARCHAR.
-SUM(amount) OVER (
-    ORDER BY status_code               -- VARCHAR — ERROR with RANGE offset
-    RANGE BETWEEN 1 PRECEDING AND CURRENT ROW
-)
-
--- CONSTRAINT 3: RANGE BETWEEN INTERVAL ... engine support is uneven.
--- PostgreSQL, BigQuery, DuckDB: full support
--- Databricks SQL: supported
--- Snowflake: RANGE with INTERVAL is NOT supported — use epoch seconds workaround
--- MySQL 8+, SQL Server 2022+: partial support
-
--- Snowflake workaround for 7-day rolling window:
-SUM(amount) OVER (
-    PARTITION BY user_id
-    ORDER BY DATEDIFF('second', '1970-01-01', txn_date)   -- convert to epoch
-    RANGE BETWEEN 604800 PRECEDING AND CURRENT ROW        -- 7 days in seconds
-)
-
--- Universal workaround (works on all engines): use ROWS + pre-aggregation to daily buckets
--- so that "7 rows" = "7 days" when data is already at 1-row-per-day granularity.
-WITH daily AS (
-    SELECT user_id, txn_date, SUM(amount) AS daily_total
-    FROM transactions
-    GROUP BY user_id, txn_date        -- 1 row per (user, day) guaranteed
-)
-SELECT user_id, txn_date, daily_total,
-    SUM(daily_total) OVER (
-        PARTITION BY user_id
-        ORDER BY txn_date
-        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW    -- 7 rows = 7 days because of pre-agg
-    ) AS rolling_7d
-FROM daily;
-```
 
 ---
 
@@ -252,20 +210,12 @@ All major engines agree on the SQL standard default: `RANGE BETWEEN UNBOUNDED PR
 | Engine | Default (ORDER BY, no frame) | RANGE INTERVAL support | NULL-in-ORDER-BY behaviour |
 |---|---|---|---|
 | PostgreSQL | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Full (`INTERVAL '7 days'`) | NULL rows peer with each other under RANGE |
-| Snowflake | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | No INTERVAL — use epoch workaround | Same |
-| BigQuery | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Full | Same |
-| Databricks SQL | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Full (Spark 3.0+) | Same |
-| Redshift | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Limited | Same |
 | MySQL 8+ | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Partial (8.0+) | Same |
-| SQL Server | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Partial (2022+) | Same |
-| DuckDB | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Full | Same |
 
 **The one place engines differ:** when `ORDER BY` is absent.
 
 | Engine | No ORDER BY default |
 |---|---|
-| PostgreSQL, BigQuery, Snowflake, Databricks | `RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` (entire partition) |
-| SQL Server | Same — but RANGE without ORDER BY requires all peers to be equal; effectively entire partition |
 
 ---
 
@@ -339,7 +289,6 @@ MAX(salary)   OVER (PARTITION BY dept_id)         -- max in department ✓
 | Row-by-row running total / cumulative sum | `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` |
 | Partition-wide total on every row | Omit ORDER BY and frame entirely |
 | Rolling N-row window (last N data points) | `ROWS BETWEEN N-1 PRECEDING AND CURRENT ROW` |
-| Rolling N-day window (calendar-based, irregular dates) | `RANGE BETWEEN INTERVAL 'N' DAY PRECEDING AND CURRENT ROW` (or epoch workaround on Snowflake) |
 | First value in partition | `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` |
 | Last value in partition | `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` |
 | Centred moving average (N rows before and after) | `ROWS BETWEEN N PRECEDING AND N FOLLOWING` |
@@ -357,9 +306,9 @@ MAX(salary)   OVER (PARTITION BY dept_id)         -- max in department ✓
 | Adding ORDER BY to a partition-wide aggregate | Turns constant into a running total | Omit ORDER BY; or use ROWS UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING |
 | LAST_VALUE without full frame | Returns current row's value (useless) | Add ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING |
 | NULLs in ORDER BY column with RANGE | NULL rows are peers of each other — unpredictable frame | Use ROWS; COALESCE the ORDER BY column |
-| RANGE INTERVAL on Snowflake | Not supported — silent error | Use epoch-second numeric RANGE or daily pre-aggregation + ROWS |
 | RANGE with multiple ORDER BY cols | Error in most engines | Use ROWS, or reduce to single ORDER BY col |
 | Frame clause on LAG/LEAD/ROW_NUMBER | Silently ignored — false security | Remove it; understand these functions have no frame |
 
 ---
+
 

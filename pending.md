@@ -6,6 +6,10 @@
 4. Lambda functions
 5. Type annotations
 6. Pythonic way of writing code
+7. [x] DSA questions for DE specific interview rounds
+8. [x] Regex construction without any in-built libraries
+9. [x] End-to-end data pipeline in pure Python (scalable to 10 TB)
+10. [x] Date and time handling in Python
 
 
 - Make all the files in the sql-patterns folder tech stack/cloud platform agnostic

@@ -25,8 +25,6 @@ Compute aggregates over a sliding window of N rows or N time units (7-day moving
 
 ### Boilerplate — Row-based rolling window
 
-```
-
 ```sql
 -- 7-day moving average price (last 7 rows)
 SELECT
@@ -166,101 +164,12 @@ SELECT txn_category, amount,
     ) AS rolling_avg
 FROM ordered_categories;
 -- Always use ROWS (not RANGE) when ORDER BY column is not a numeric/date type
-```
-
----
-
-### At Scale
-
-#### Failure Mechanism
-
-`SUM(amount) OVER (ORDER BY txn_date RANGE BETWEEN INTERVAL '7' DAY PRECEDING AND CURRENT ROW)` on 800M rows:
-
-- RANGE with an interval: engine must join each row to all rows within 7 days — this is an **inequality join**, the most expensive join type in SQL
-- At 800M rows with daily data: average row participates in 7 windows → ~5.6B comparisons
-- In Spark: converted to a sort-merge join with a bloom filter — still O(N log N) with high constant
-
-#### Code-Level Fix
-
-```sql
-
-```sql
--- BEFORE: 7-day rolling sum on raw 800M transaction table
-SELECT user_id, txn_date, SUM(amount) OVER (
-    PARTITION BY user_id
-    ORDER BY txn_date
-    RANGE BETWEEN INTERVAL '7' DAY PRECEDING AND CURRENT ROW
-) AS rolling_7d_volume
-FROM transactions;   -- 800M rows; RANGE interval join
-
--- FIX 1: Pre-aggregate to daily granularity, then compute rolling sum on daily totals
-WITH daily AS (
-    SELECT user_id, txn_date, SUM(amount) AS daily_volume
-    FROM transactions
-    GROUP BY user_id, txn_date   -- 800M → 5M daily rows (160× reduction)
-),
-date_spine AS (
-    -- Ensure all dates exist so ROWS frame is equivalent to RANGE frame
-    SELECT DISTINCT user_id FROM transactions,
-    LATERAL (SELECT explode(sequence(
-        MIN(txn_date) OVER (PARTITION BY user_id),
-        MAX(txn_date) OVER (PARTITION BY user_id),
-        INTERVAL 1 DAY
-    )) AS txn_date) spine_dates
-),
-filled AS (
-    SELECT s.user_id, s.txn_date, COALESCE(d.daily_volume, 0) AS daily_volume
-    FROM date_spine s LEFT JOIN daily d USING (user_id, txn_date)
-)
-SELECT user_id, txn_date, daily_volume,
-    SUM(daily_volume) OVER (
-        PARTITION BY user_id
-        ORDER BY txn_date
-        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW   -- ROWS safe because date_spine is complete
-    ) AS rolling_7d_volume
-FROM filled;
--- Window function now runs on 5M rows with ROWS frame (faster than RANGE on 800M)
-
--- FIX 2: For real-time rolling windows, use a materialised daily summary table
--- and maintain it with streaming updates (Flink / Spark Structured Streaming)
--- Final query: simple SUM over 7 rows from the daily summary table
-```
 
 #### System-Level Fix
 
-```sql
--- Delta Lake: materialise daily user summaries for rolling window efficiency
-CREATE TABLE user_daily_summary (
-    user_id       STRING,
-    summary_date  DATE,
-    daily_volume  DECIMAL(20,2),
-    daily_count   BIGINT,
-    avg_amount    DECIMAL(15,2)
-)
-USING DELTA
-PARTITIONED BY (summary_date)   -- fast date-range reads
-TBLPROPERTIES ('delta.autoOptimize.optimizeWrite' = 'true');
-OPTIMIZE user_daily_summary ZORDER BY (user_id);   -- fast per-user reads
-
--- Rolling 7-day query on this table: reads 7 small partitions, already aggregated
--- Cost: 7 × (partition_size) vs. 800M rows scan — orders of magnitude cheaper
-
--- Snowflake: dynamic table for rolling metrics
-CREATE OR REPLACE DYNAMIC TABLE rolling_7d_metrics
-  LAG = '1 hour' WAREHOUSE = reporting_wh
-AS
-SELECT user_id, summary_date,
-    SUM(daily_volume) OVER (
-        PARTITION BY user_id
-        ORDER BY summary_date
-        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
-    ) AS rolling_7d_volume
-FROM user_daily_summary;
-```
-
-```sql
 
 ---
 
 ---
+
 

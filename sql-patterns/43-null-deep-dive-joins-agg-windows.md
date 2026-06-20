@@ -13,8 +13,6 @@ This section dissects how NULL behaves inside every major SQL pattern. Each subs
 
 When a LEFT JOIN finds no matching row on the right side, **every column from the right table becomes NULL** for that row. This is how LEFT JOIN works. The danger is filtering those NULLs away accidentally.
 
-```
-
 ```sql
 -- Schema: loans(loan_id, borrower_id, ...), repayments(loan_id, repaid_amount, repaid_at)
 
@@ -82,19 +80,12 @@ FULL OUTER JOIN actual_disbursements a ON e.loan_id = a.loan_id;
 -- Key points:
 -- 1. Use COALESCE(e.id, a.id) to get the ID regardless of which side has it
 -- 2. Use IS DISTINCT FROM for amount comparison (handles NULLs on either side)
--- 3. FULL OUTER JOIN in Spark SQL: use (e.loan_id = a.loan_id OR
 --    (e.loan_id IS NULL AND a.loan_id IS NULL)) if you want NULL keys to match
-```
-
-```sql
-
 ---
 
 ### 32-B. NULL in Aggregate Functions
 
 This is the most nuanced NULL area — each function has its own NULL contract.
-
-```
 
 ```sql
 -- Sample data: bonuses table
@@ -157,11 +148,6 @@ GROUP BY borrower_id;
 -- BUT: COALESCE(SUM(...), 0) only helps when the group exists
 -- If the borrower has NO rows in repayments, they won't appear in this result at all
 -- → Need a LEFT JOIN from borrowers to repayments to catch those cases
-```
-
-**NULL with FILTER clause (PostgreSQL / DuckDB / BigQuery):**
-
-```sql
 -- FILTER is a cleaner alternative to CASE WHEN inside aggregates
 -- NULL behaviour: rows where the filter is FALSE contribute NULL (not 0) to the aggregate
 
@@ -172,17 +158,11 @@ SELECT
     -- Rows where status IS NULL do NOT match either filter → excluded from both counts
     COUNT(*) FILTER (WHERE status IS NULL)     AS pending_count  -- in-flight transactions
 FROM upi_transactions;
-```
-
-```sql
-
 ---
 
 ### 32-C. NULL in Window Functions
 
 #### Ranking (ROW_NUMBER, RANK, DENSE_RANK) — NULL in ORDER BY
-
-```
 
 ```sql
 -- When ORDER BY column has NULLs, NULL position depends on NULLS FIRST/LAST
@@ -289,7 +269,6 @@ FROM user_events;
 
 -- Engine support for IGNORE NULLS:
 -- PostgreSQL: NOT supported natively — use a workaround (see below)
--- Snowflake / BigQuery / DuckDB / Spark SQL: supported
 -- MySQL: NOT supported
 
 -- PostgreSQL workaround for forward-fill (LAST_VALUE IGNORE NULLS equivalent):
@@ -330,9 +309,6 @@ LEFT JOIN daily_revenue_agg USING (txn_date);
 -- TRAP: if ALL rows in the partition are NULL, SUM returns NULL (not 0)
 -- Protect with COALESCE if needed:
 COALESCE(SUM(daily_revenue) OVER (...), 0) AS running_total
-```
-
-```sql
-
 ---
+
 

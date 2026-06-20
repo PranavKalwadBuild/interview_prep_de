@@ -28,8 +28,6 @@ Access the value of a previous (`LAG`) or next (`LEAD`) row within an ordered pa
 
 ### Boilerplate
 
-```
-
 ```sql
 -- Pattern: Compare current row to previous row
 SELECT
@@ -43,7 +41,6 @@ SELECT
     trade_amount - LAG(trade_amount, 1) OVER (PARTITION BY user_id ORDER BY executed_at) AS amount_change,
 
     -- Time gap between events
-    DATEDIFF(
         executed_at,
         LAG(executed_at, 1) OVER (PARTITION BY user_id ORDER BY executed_at)
     ) AS days_since_last_trade
@@ -186,10 +183,6 @@ END AS mom_pct
 ```sql
 -- Some engines support LAG(col IGNORE NULLS) to skip NULL values in the lag lookup
 -- Support:
--- Snowflake: YES — LAG(col IGNORE NULLS) OVER (...)
--- BigQuery:  YES
--- DuckDB:    YES
--- Spark SQL: YES
 -- PostgreSQL: NO — must implement manually
 -- MySQL:      NO
 
@@ -205,7 +198,6 @@ FROM user_events;
 **Fix:**
 
 ```sql
--- Engines that support IGNORE NULLS (Snowflake, BigQuery, DuckDB, Spark):
 SELECT user_id, event_date, credit_score,
     LAG(credit_score IGNORE NULLS) OVER (
         PARTITION BY user_id ORDER BY event_date
@@ -224,11 +216,6 @@ WITH forward_filled AS (
 SELECT user_id, event_date, credit_score,
     LAG(last_non_null_score) OVER (PARTITION BY user_id ORDER BY event_date) AS prev_known_score
 FROM forward_filled;
--- For portability across all engines: use Snowflake/BigQuery with LAST_VALUE(col IGNORE NULLS)
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -243,8 +230,6 @@ FROM forward_filled;
 - **Memory pressure**: if a user has 50M transactions, their entire partition must fit in one executor's memory
 
 #### Code-Level Fix
-
-```
 
 ```sql
 -- BEFORE: LAG on entire 800M row table
@@ -264,7 +249,6 @@ prior_txns AS (
         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY executed_at DESC) AS rn
     FROM transactions
     WHERE txn_date = CURRENT_DATE - 1
-    QUALIFY rn = 1   -- Snowflake; use CTE filter in other engines
 ),
 combined AS (
     SELECT user_id, executed_at, amount, 'new' AS src FROM new_txns
@@ -278,7 +262,6 @@ WHERE src = 'new';   -- compute LAG only for today's rows; prior row is the anch
 -- Shuffle volume: today's rows + 1 prior row per user (trivial) instead of 800M
 
 -- FIX 2: For fraud velocity (LAG within a time window), use a self-join with bound
--- This is a bounded join — Spark can convert to broadcast if one side is small
 SELECT a.txn_id, a.user_id, a.amount, a.executed_at,
     b.amount AS prev_amount, b.executed_at AS prev_executed_at
 FROM transactions a
@@ -290,16 +273,7 @@ JOIN transactions b
         AND executed_at >= a.executed_at - INTERVAL '1 hour'  -- bounded window
     )
 WHERE a.txn_date = CURRENT_DATE;
--- Still expensive but bounded — consider Flink or Spark Structured Streaming for real-time
-```
-
-#### System-Level Fix
-
-**Delta Lake — Liquid Clustering for LAG patterns:**
-
-```sql
 -- Liquid Clustering (Delta 3.0): no PARTITION BY limitation; incremental; online
-ALTER TABLE transactions CLUSTER BY (user_id, executed_at);
 -- Data is clustered on user_id + executed_at together
 -- LAG(PARTITION BY user_id ORDER BY executed_at): reads co-located files per user
 -- No partition overwrite needed — incremental clustering on new data only
@@ -308,28 +282,17 @@ ALTER TABLE transactions CLUSTER BY (user_id, executed_at);
 -- Emit (user_id, current_amount, prev_amount) directly from the stream
 -- Store state per user_id in RocksDB (Flink's state backend)
 -- No SQL LAG needed at query time — it's pre-computed in the stream
-```
-
-**Redshift — Compound sort key for LAG:**
-
-```sql
 CREATE TABLE transactions (
     txn_id      BIGINT,
     user_id     BIGINT,
     executed_at TIMESTAMP,
     amount      DECIMAL(15,2)
 )
-DISTSTYLE KEY  DISTKEY(user_id)
-COMPOUND SORTKEY(user_id, executed_at);
 -- Rows for same user are physically adjacent on disk
 -- Rows within each user are sorted by executed_at
 -- LAG(PARTITION BY user_id ORDER BY executed_at): sequential I/O per user, no random seek
--- Redshift skips most column blocks via zone map min/max stats
-```
-
-```sql
-
 ---
 
 ---
+
 

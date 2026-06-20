@@ -94,7 +94,7 @@
 | [48-edge-cases-2-scale-joins.md](48-edge-cases-2-scale-joins.md) | Edge Cases Part 2 + At Scale — JOINs | ~329 |
 | [49-at-scale-patterns.md](49-at-scale-patterns.md) | Breaking at Scale — Pattern Fixes + Readiness Checklist | ~234 |
 | [50-partition-sort-keys-1.md](50-partition-sort-keys-1.md) | Partition/Sort Keys — Mental Model and Partition Key | ~278 |
-| [51-partition-sort-keys-2.md](51-partition-sort-keys-2.md) | Partition/Sort Keys — Sort, Distribution, Cloud Platforms, Decision Framework | ~251 |
+| [51-partition-sort-keys-2.md](51-partition-sort-keys-2.md) | Partition/Sort Keys — Ordering, Distribution, Decision Framework | ~251 |
 | [52-partition-sort-keys-examples.md](52-partition-sort-keys-examples.md) | Partition/Sort Keys — Code Examples and Skew | ~268 |
 | [53-partition-sort-keys-syntax.md](53-partition-sort-keys-syntax.md) | Partition/Sort Keys — Anti-Patterns, Syntax Reference, Cheat Sheet | ~144 |
 | [54-dup-handling-window-funcs.md](54-dup-handling-window-funcs.md) | Duplicate Handling — Root Causes + Window Function Patterns | ~284 |
@@ -114,18 +114,10 @@
 
 | File | Topic | Lines |
 |---|---|---|
-| [61-query-plans-explain.md](61-query-plans-explain.md) | EXPLAIN, EXPLAIN ANALYZE, Reading Query Plans — PostgreSQL, Snowflake, BigQuery, Databricks, Redshift | ~450 |
-
-## Part 6 — NoSQL Systems (DE Perspective)
-
-| File | Topic | Lines |
-|---|---|---|
-| [62-nosql-foundations.md](62-nosql-foundations.md) | CAP Theorem, PACELC, ACID vs BASE, 4 Data Models, SQL vs NoSQL Decision, Schema-on-Read vs Write | ~160 |
-| [63-nosql-key-systems.md](63-nosql-key-systems.md) | DynamoDB (partition design, hot partitions, STD, GSI/LSI, Streams, CDC), MongoDB (aggregation pipeline, change streams, Debezium), Cassandra (CQL rules, compaction, pitfalls) | ~220 |
-| [64-nosql-redis-and-ingestion.md](64-nosql-redis-and-ingestion.md) | Redis (data structures, persistence, Streams vs Pub/Sub, DE use cases), Ingestion patterns from DynamoDB/MongoDB/Cassandra/Redis, semi-structured JSON handling | ~220 |
-| [65-nosql-quick-reference.md](65-nosql-quick-reference.md) | Interview Q&A (10 questions), Numbers cheat sheet, PACELC table, Managed services map, Decision tree, Red flags | ~150 |
+| [61-query-plans-explain.md](61-query-plans-explain.md) | EXPLAIN, EXPLAIN ANALYZE, Reading Query Plans — ANSI concepts with PostgreSQL/MySQL examples | ~450 |
 
 ---
 
 *Original file: `sql_patterns.md` | Total: ~15,947 lines | Split into 60 files*
-*NoSQL section added 2026-06-13 — files 62–65*
+*Former NoSQL appendix files were moved to `../nosql-patterns/` so this folder remains SQL-focused and platform-agnostic.*
+

@@ -27,8 +27,6 @@ Detect and quantify data quality issues: nulls, duplicates, referential integrit
 
 ### Boilerplate — Null and completeness checks
 
-```
-
 ```sql
 -- Count nulls per column
 SELECT
@@ -85,9 +83,7 @@ FROM trades;
 -- Check if the latest record is stale (no data in last 1 hour)
 SELECT
     MAX(ingested_at)                                        AS latest_ingestion,
-    DATEDIFF('minute', MAX(ingested_at), CURRENT_TIMESTAMP) AS minutes_since_last_ingest,
     CASE
-        WHEN DATEDIFF('minute', MAX(ingested_at), CURRENT_TIMESTAMP) > 60
         THEN 'STALE' ELSE 'FRESH'
     END AS freshness_status
 FROM raw_trades;
@@ -200,10 +196,6 @@ amount DECIMAL(15, 2)   -- up to 13 digits before decimal, exactly 2 after
 SELECT amount, ROUND(amount, 2), amount - ROUND(amount, 2) AS precision_error
 FROM transactions
 WHERE ABS(amount - ROUND(amount, 2)) > 0.000001;  -- rows where float imprecision shows
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -211,8 +203,6 @@ WHERE ABS(amount - ROUND(amount, 2)) > 0.000001;  -- rows where float imprecisio
 #### Failure Mechanism
 
 Running a comprehensive NULL audit on an 800M row table:
-
-```
 
 ```sql
 SELECT COUNT(*) - COUNT(col1), COUNT(*) - COUNT(col2), ...  -- 20 columns
@@ -236,7 +226,6 @@ TABLESAMPLE (1 PERCENT);   -- scan 1% of data → 8M rows instead of 800M
 -- For NULL rates: 1% sample gives 0.01% confidence interval (accurate enough for DQ alerting)
 
 -- FIX 2: Push DQ validation to write time (not query time)
--- Use Delta Lake CONSTRAINTS for declarative data quality:
 ALTER TABLE transactions ADD CONSTRAINT amount_positive CHECK (amount > 0);
 ALTER TABLE transactions ADD CONSTRAINT txn_id_not_null CHECK (txn_id IS NOT NULL);
 -- These constraints run at write time (INSERT/MERGE) — zero DQ query overhead at read time
@@ -257,7 +246,6 @@ CREATE TABLE dq_results (
 #### System-Level Fix
 
 ```sql
--- Delta Lake + dbt: column-level constraints and test-time DQ
 -- dbt tests run at ETL time (not query time):
 -- schema.yml:
 -- - name: transactions
@@ -268,21 +256,14 @@ CREATE TABLE dq_results (
 --       tests: [not_null, positive_values]
 -- dbt runs these tests after each model build — failures block downstream models
 
--- Great Expectations / Soda: run DQ checks as a pipeline step, not at query time
--- Results stored in metadata tables; no production query overhead
+-- Run data quality checks as a pipeline step, not inside every production query.
+-- Store results in metadata tables so failures can block downstream loads.
 
--- Delta Live Tables (Databricks): declarative DQ with @dlt.expect and @dlt.expect_or_drop
-@dlt.table
-@dlt.expect("valid_amount", "amount > 0")
-@dlt.expect_or_drop("txn_id_not_null", "txn_id IS NOT NULL")
-def transactions_clean():
-    return spark.read.table("raw_transactions")
--- Rows failing expectations are tracked in the pipeline event log
--- Clean table: only passing rows; quarantine table: failing rows
-```
-
-```sql
-
+CREATE TABLE dq_results (
+    check_name    VARCHAR(100),
+    checked_at    TIMESTAMP,
+    failed_count  BIGINT
+);
 ---
 
 ---

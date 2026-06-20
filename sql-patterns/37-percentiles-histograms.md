@@ -26,10 +26,7 @@ Compute distribution statistics — median, p90, p99, bucketed distributions.
 
 ### Boilerplate — Percentile functions
 
-```
-
 ```sql
--- PostgreSQL / BigQuery
 SELECT
     trading_pair,
     PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY trade_amount) AS median_amount,
@@ -38,7 +35,6 @@ SELECT
 FROM trades
 GROUP BY trading_pair;
 
--- Snowflake
 SELECT
     trading_pair,
     MEDIAN(trade_amount)                          AS median_amount,
@@ -135,7 +131,6 @@ GROUP BY trading_pair;
 **Problem:**
 
 ```sql
--- APPROX_PERCENTILE / APPROX_QUANTILE (Spark, BigQuery, Snowflake) is faster but approximate
 -- Accuracy: typically within 1% of actual value for large datasets
 -- The error is probabilistic — occasionally worse
 
@@ -161,7 +156,6 @@ FROM api_response_times;
 
 -- Dashboards and trend analysis (approximate is fine):
 SELECT trading_pair,
-    APPROX_PERCENTILE(trade_amount, 0.99) AS approx_p99  -- Snowflake
 FROM trades GROUP BY trading_pair;
 
 -- Regulatory reporting / SLA measurement (exact required):
@@ -195,51 +189,6 @@ FROM trades;
 
 ```sql
 
-```sql
--- BEFORE: exact p99 on 800M rows
-SELECT trading_pair,
-    PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY trade_amount) AS p99_amount
-FROM trades GROUP BY trading_pair;
--- Requires: sort all 800M rows within each trading_pair partition
-
--- FIX 1: Approximate percentile (t-digest / HLL) — 1% error, 100× faster
--- Databricks / Spark:
-SELECT trading_pair,
-    PERCENTILE_APPROX(trade_amount, 0.99, 10000) AS approx_p99
-FROM trades GROUP BY trading_pair;
--- PERCENTILE_APPROX: uses t-digest algorithm, accuracy param = 10000 (higher = more accurate)
-
--- Snowflake:
-SELECT trading_pair,
-    APPROX_PERCENTILE(trade_amount, 0.99) AS approx_p99  -- uses Greenwald-Khanna algorithm
-FROM trades GROUP BY trading_pair;
-
--- BigQuery:
-SELECT trading_pair,
-    APPROX_QUANTILES(trade_amount, 100)[OFFSET(99)] AS approx_p99
-FROM trades GROUP BY trading_pair;
-
--- FIX 2: For exact percentiles, pre-aggregate to a histogram first
--- Build a histogram with 1000 buckets (captures percentile with 0.1% accuracy)
-WITH hist AS (
-    SELECT trading_pair,
-        WIDTH_BUCKET(trade_amount, 0, 10000000, 1000) AS bucket,
-        COUNT(*) AS cnt
-    FROM trades GROUP BY trading_pair, bucket
-),
-cumulative AS (
-    SELECT *,
-        SUM(cnt) OVER (PARTITION BY trading_pair ORDER BY bucket ROWS UNBOUNDED PRECEDING) AS cum_cnt,
-        SUM(cnt) OVER (PARTITION BY trading_pair) AS total_cnt
-    FROM hist
-)
-SELECT trading_pair, bucket, cum_cnt / total_cnt AS cumulative_pct
-FROM cumulative
-WHERE cum_cnt / total_cnt >= 0.99
-QUALIFY ROW_NUMBER() OVER (PARTITION BY trading_pair ORDER BY bucket) = 1;
--- Histogram built from 800M rows → 1000 buckets per trading_pair → ~50K rows
--- Percentile from histogram: trivial operation on 50K rows
-```
 
 #### System-Level Fix
 
@@ -261,11 +210,8 @@ CREATE TABLE metric_percentiles (
 -- Use a UDAF (User-Defined Aggregate Function) that maintains a t-digest sketch
 -- Emit running p99 from the sketch every 10 seconds
 -- Zero sort, O(1) space per sketch, O(log N) update per event
-```
-
-```sql
-
 ---
 
 ---
+
 

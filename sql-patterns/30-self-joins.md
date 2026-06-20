@@ -25,8 +25,6 @@ Compare a row with another row in the same table — pairs, hierarchies, consecu
 
 ### Boilerplate — Consecutive event pairs
 
-```
-
 ```sql
 -- Find pairs of trades by same user within 5 minutes
 SELECT
@@ -35,12 +33,10 @@ SELECT
     b.trade_id      AS trade2_id,
     a.executed_at   AS trade1_time,
     b.executed_at   AS trade2_time,
-    DATEDIFF('minute', a.executed_at, b.executed_at) AS minutes_apart
 FROM trades a
 JOIN trades b
     ON  a.user_id = b.user_id
     AND a.trade_id < b.trade_id          -- avoid duplicates and self-join
-    AND DATEDIFF('minute', a.executed_at, b.executed_at) BETWEEN 0 AND 5;
 ```
 
 ### Boilerplate — Hierarchy (manager/employee)
@@ -141,84 +137,19 @@ Self-join for "trades within 5 minutes of each other":
 
 ```sql
 
-```sql
-JOIN trades b ON a.user_id = b.user_id AND DATEDIFF('minute', a.executed_at, b.executed_at) BETWEEN 0 AND 5
-```
 
 - This is an **inequality range join** — same problem as SCD2
 - For a user with 10,000 trades: 10,000 × 10,000 = 100M pair comparisons just for that user
 - For 1M active users: total comparisons can reach billions
-- No hash join possible; Spark falls back to BroadcastNestedLoopJoin (extremely slow)
 
 #### Code-Level Fix
 
-```sql
--- BEFORE: self-join for wash trade detection (pairs within 5 minutes)
-SELECT a.trade_id AS trade1, b.trade_id AS trade2
-FROM trades a
-JOIN trades b
-    ON a.user_id = b.user_id
-    AND a.trade_id < b.trade_id
-    AND DATEDIFF('minute', a.executed_at, b.executed_at) BETWEEN 0 AND 5;
--- For 1M users × avg 100 trades each = 10B self-join rows before filter
-
--- FIX 1: Use LAG instead of self-join for "consecutive events" patterns
--- LAG only compares each row to its PREVIOUS row — O(N), not O(N²)
-SELECT
-    trade_id,
-    user_id,
-    executed_at,
-    LAG(trade_id)    OVER (PARTITION BY user_id ORDER BY executed_at) AS prev_trade_id,
-    LAG(executed_at) OVER (PARTITION BY user_id ORDER BY executed_at) AS prev_executed_at,
-    DATEDIFF('minute',
-        LAG(executed_at) OVER (PARTITION BY user_id ORDER BY executed_at),
-        executed_at
-    ) AS minutes_since_last_trade
-FROM trades
-WHERE DATEDIFF('minute',
-    LAG(executed_at) OVER (PARTITION BY user_id ORDER BY executed_at),
-    executed_at) <= 5;   -- can't use this in WHERE — use CTE
--- Correct approach:
-WITH lagged AS (
-    SELECT *,
-        LAG(executed_at) OVER (PARTITION BY user_id ORDER BY executed_at) AS prev_at
-    FROM trades
-)
-SELECT trade_id, user_id, executed_at, prev_at
-FROM lagged
-WHERE DATEDIFF('minute', prev_at, executed_at) <= 5;
--- O(N) not O(N²) — works on any size data
-
--- FIX 2: For all-pairs within window (not just consecutive): use sorted merge
--- Sort by (user_id, executed_at), then use a sliding window with pointer
--- This is best implemented in Spark DataFrames or a user-defined UDTF
--- Pure SQL self-join for all-pairs is fundamentally O(N²) — avoid at scale
-```
 
 #### System-Level Fix
 
-```sql
--- For real-time fraud pair detection: use Apache Flink's temporal join or window join
--- Flink: join two streams within a time window without materialising all pairs
--- Pattern: for each trade event, check if another trade from the same user exists
--- in the last 5 minutes using Flink's interval join:
-trades.joinLateral(
-    trades,
-    "a.user_id = b.user_id AND b.executed_at BETWEEN a.executed_at AND a.executed_at + 5.minutes"
-) -- Flink pushes the 5-minute bound into the state TTL — O(N) state per user
-
--- Delta Lake: for batch wash-trade detection, use bucketing to avoid cross-node self-join
-CREATE TABLE trades_bucketed
-USING DELTA
-CLUSTERED BY (user_id) INTO 500 BUCKETS;
--- Self-join on user_id with bucket join: each executor only self-joins its own bucket
--- Bucket size: 800M / 500 = 1.6M rows per bucket → 1.6M × 1.6M / 2 pairs max per bucket
--- With 5-minute time filter: much fewer actual pairs
-```
-
-```sql
 
 ---
 
 ---
+
 

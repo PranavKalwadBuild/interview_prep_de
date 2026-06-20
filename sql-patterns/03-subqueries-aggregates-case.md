@@ -106,6 +106,12 @@ ORDER BY total_payroll DESC;
 | `MAX(col)` | Largest value | Ignores NULLs |
 
 > **Gotcha:** `AVG` ignores NULLs in its denominator — `AVG(col)` ≠ `SUM(col) / COUNT(*)` if there are NULLs. Use `SUM(col) / NULLIF(COUNT(*), 0)` when you want the total-row average.
+> 
+> **Why it happens:** AVG computes the sum of non-NULL values divided by the count of non-NULL values, not the total number of rows. NULLs are excluded from both numerator and denominator.
+> 
+> **Example:** With values (10, NULL, 30), AVG = (10+30)/2 = 20, whereas SUM/COUNT(*) = 40/3 ≈ 13.33 (average across all rows, treating NULL as 0).
+> 
+> **Fix:** Use `SUM(col) / NULLIF(COUNT(*), 0)` to get the average across all rows (NULL treated as 0). Alternatively, use `AVG(COALESCE(col, 0))` if you want to treat NULL as zero.
 
 ---
 
@@ -144,7 +150,6 @@ ORDER BY
         WHEN 20 THEN 2
         ELSE 3
     END;
-```sql
-
 ---
+
 

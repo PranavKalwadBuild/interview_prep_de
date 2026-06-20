@@ -30,8 +30,6 @@ SCD Type 1 = **overwrite**. When a source attribute changes, you simply update t
 -- Target (dimension table)
 -- dim_customers
 -- customer_id  | name  | email  | city  | phone | is_active | created_at | updated_at | deleted_at
-```sql
-
 ---
 
 ### Iteration 0 — Base MERGE (Naive starting point)
@@ -137,7 +135,6 @@ WHEN NOT MATCHED THEN
     VALUES (s.customer_id, s.name, s.email, s.city, CURRENT_TIMESTAMP, s.updated_at, TRUE);
 ```
 
-> **Snowflake note:** Snowflake supports `IS DISTINCT FROM` natively. In MySQL use `<=>` (NULL-safe equals) and negate it. In BigQuery use `source IS DISTINCT FROM target`.
 
 ---
 
@@ -234,10 +231,6 @@ WHEN NOT MATCHED THEN
 
 #### Option A — Hard Delete (physically remove the row)
 
-```sql
--- Add this clause to the MERGE (Snowflake / SQL Server syntax):
-WHEN NOT MATCHED BY SOURCE THEN DELETE;
-```
 
 **Full MERGE with hard delete:**
 
@@ -317,7 +310,6 @@ WHEN NOT MATCHED BY SOURCE THEN
 ```sql
 -- All consumers must always filter on is_active:
 SELECT * FROM dim_customers WHERE is_active = TRUE;
-```sql
-
 ---
+
 

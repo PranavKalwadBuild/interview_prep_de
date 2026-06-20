@@ -48,17 +48,6 @@ WHERE rn = 1;              -- ERROR: column "rn" does not exist
 
 **Fix — wrap in CTE:**
 
-```sql
-WITH ranked AS (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY executed_at DESC) AS rn
-    FROM trades
-)
-SELECT * FROM ranked WHERE rn = 1;
-
--- Snowflake/BigQuery/DuckDB alternative:
-SELECT * FROM trades
-QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY executed_at DESC) = 1;
-```
 
 #### Edge 0-C: Aggregate in WHERE instead of HAVING
 
@@ -85,15 +74,6 @@ HAVING COUNT(*) > 10;
 
 **Problem:**
 
-```sql
--- Breaks in PostgreSQL/Redshift: GROUP BY runs before SELECT, alias unknown
-SELECT DATE_TRUNC('month', txn_date) AS month, COUNT(*) AS txn_count
-FROM transactions
-GROUP BY month;        -- ERROR in PostgreSQL / Redshift
-
--- Works silently in MySQL and BigQuery (they allow GROUP BY aliases)
--- This query runs fine in MySQL but breaks in PostgreSQL — cross-engine trap
-```
 
 **Fix — repeat the full expression:**
 
@@ -129,146 +109,4 @@ LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.repaid_amount > 0
 WHERE r.repaid_amount > 0 OR r.repaid_amount IS NULL
 ```
 
-```sql
 
----
-
-### 33-1. Window Functions — Ranking Edge Cases
-
-> Full detail in [Pattern 1 — Window Functions Ranking → Edge Cases](#1-window-functions--ranking).
-> Critical: non-deterministic `ROW_NUMBER` without unique tiebreaker `ORDER BY`; `RANK` gaps vs `DENSE_RANK` ties.
-
----
-
-### 33-2. LAG / LEAD Edge Cases
-
-> Full detail in [Pattern 2 — LAG / LEAD → Edge Cases](#2-window-functions--lag--lead).
-> Critical: `LAG` returns NULL for first row (use default arg); LAG/LEAD do NOT skip NULLs.
-
----
-
-### 33-3. Running Aggregates — Frame Edge Cases
-
-> Full detail in [Pattern 3 — Running Aggregates → Edge Cases](#3-window-functions--running-aggregates).
-> Critical: default `RANGE UNBOUNDED PRECEDING` double-counts ties — use `ROWS BETWEEN` instead.
-
----
-
-### 33-4. FIRST_VALUE / LAST_VALUE Edge Cases
-
-> Full detail in [Pattern 4 — FIRST_VALUE / LAST_VALUE → Edge Cases](#4-window-functions--first_value--last_value).
-> Critical: `LAST_VALUE` requires `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` to see full partition.
-
----
-
-### 33-5. Gap and Islands Edge Cases
-
-> Full detail in [Pattern 5 — Gap and Islands → Edge Cases](#5-gap-and-islands).
-> Critical: NULL `prev_date` makes first row always a gap start; date-only events need `DISTINCT` first.
-
----
-
-### 33-6. Sessionization Edge Cases
-
-> Full detail in [Pattern 6 — Sessionization → Edge Cases](#6-sessionization).
-> Critical: session boundary at partition start always `is_break=1`; overlapping sessions silently merge.
-
----
-
-### 33-7. Deduplication Edge Cases
-
-> Full detail in [Pattern 7 — Deduplication → Edge Cases](#7-deduplication-patterns).
-> Critical: keep-first dedup is non-deterministic without a unique tiebreaker `ORDER BY`.
-
----
-
-### 33-8. Top-N per Group Edge Cases
-
-> Full detail in [Pattern 8 — Top-N per Group → Edge Cases](#8-top-n-per-group).
-> Critical: ties at rank boundary include more than N rows; need QUALIFY + LIMIT to cap exactly.
-
----
-
-### 33-9. Rolling Window Aggregation Edge Cases
-
-> Full detail in [Pattern 9 — Rolling Window → Edge Cases](#9-rolling-window-aggregations).
-> Critical: `RANGE` frame groups ties (inflates averages); NULL gaps in date spine distort rolling avg.
-
----
-
-### 33-10. Period-over-Period Edge Cases
-
-> Full detail in [Pattern 10 — Period-over-Period → Edge Cases](#10-period-over-period-comparisons-mom-yoy-dod).
-> Critical: `LAG(..., 12)` silently returns NULL for missing months; divide-by-zero when prior period = 0.
-
----
-
-### 33-11. Date Spine Edge Cases
-
-> Full detail in [Pattern 11 — Date Spine → Edge Cases](#11-date-spine--calendar-table).
-> Critical: date spine without LEFT JOIN silently drops dates with no events.
-
----
-
-### 33-12. Cohort Analysis Edge Cases
-
-> Full detail in [Pattern 12 — Cohort Analysis → Edge Cases](#12-cohort-analysis--retention).
-> Critical: cohort join on `DATE_TRUNC` loses mid-period signups; retention % inflated if cohort base is wrong.
-
----
-
-### 33-13. Funnel Analysis Edge Cases
-
-> Full detail in [Pattern 13 — Funnel Analysis → Edge Cases](#13-funnel-analysis).
-> Critical: INNER JOIN funnel drops users who skip a step; repeated steps inflate counts.
-
----
-
-### 33-14. SCD Type 2 Edge Cases
-
-> Full detail in [Pattern 14 — SCD Type 2 → Edge Cases](#14-slowly-changing-dimensions-scd-type-2).
-> Critical: zero-duration rows on same-day double change; gap between versions drops INNER JOINs; fact before first SCD2 version silently drops.
-
----
-
-### 33-15. Conditional Aggregation Edge Cases
-
-> Full detail in [Pattern 15 — Conditional Aggregation → Edge Cases](#15-conditional-aggregations).
-> Critical: `COUNT(*)` with `ELSE 0` counts all rows — use `SUM(CASE WHEN ... THEN 1 ELSE 0 END)`.
-
----
-
-### 33-16. Self Joins Edge Cases
-
-> Full detail in [Pattern 16 — Self Joins → Edge Cases](#16-self-joins--consecutive-row-comparisons).
-> Critical: self-join without strict inequality produces duplicates; NULL join key causes Cartesian product.
-
----
-
-### 33-17. Recursive CTE Edge Cases
-
-> Full detail in [Pattern 17 — Recursive CTEs → Edge Cases](#17-recursive-ctes-hierarchies).
-> Critical: missing termination condition causes infinite loop; cycles require explicit cycle detection.
-
----
-
-### 33-18. Pivoting Edge Cases
-
-> Full detail in [Pattern 18 — Pivoting → Edge Cases](#18-pivoting--unpivoting).
-> Critical: PIVOT requires all column values known at query time; dynamic pivot needs dynamic SQL.
-
----
-
-### 33-19. String Aggregation Edge Cases
-
-> Full detail in [Pattern 19 — String Aggregation → Edge Cases](#19-string-aggregation).
-> Critical: aggregation order non-deterministic without `ORDER BY`; `GROUP_CONCAT` truncates silently.
-
----
-
-### 33-20. Data Quality Pattern Edge Cases
-
-> Full detail in [Pattern 20 — Data Quality → Edge Cases](#20-data-quality-patterns).
-> Critical: NULL checks require `IS NULL` not `= NULL`; multi-column uniqueness must handle NULLs.
-
----

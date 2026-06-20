@@ -25,8 +25,6 @@ Combine results of multiple queries: union (all rows), intersection (common rows
 
 ### Boilerplate
 
-```
-
 ```sql
 -- UNION ALL: combine (keep duplicates)
 SELECT user_id, 'exchange_a' AS source FROM exchange_a_trades
@@ -47,22 +45,6 @@ SELECT user_id FROM trades;
 SELECT user_id FROM deposits
 EXCEPT
 SELECT user_id FROM trades;
-```
-
-### Gotchas
-
-- `UNION` deduplicates (like `DISTINCT`) — expensive. Use `UNION ALL` unless you need dedup.
-- `EXCEPT`/`MINUS` is the same operation — Oracle uses `MINUS`, standard SQL uses `EXCEPT`
-- All queries in a set operation must have the same number of columns and compatible types
-- `INTERSECT` and `EXCEPT` can often be rewritten as a JOIN/anti-join for better performance
-
-### Edge Cases
-
-#### Edge 21-A: UNION ALL vs UNION — accidentally including or deduplicating
-
-**Problem:**
-
-```sql
 -- UNION deduplicates rows (more expensive — requires sort or hash)
 -- UNION ALL keeps all rows (faster)
 -- Using UNION where UNION ALL is needed: duplicates silently removed
@@ -149,10 +131,6 @@ SELECT txn_id, amount::FLOAT FROM new_transactions;
 
 ```sql
 
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -166,8 +144,6 @@ SELECT txn_id, amount::FLOAT FROM new_transactions;
 - `UNION ALL` has no dedup cost — only network transfer (still expensive at scale)
 
 #### Code-Level Fix
-
-```
 
 ```sql
 -- BEFORE: UNION reconciliation across two 400M row tables
@@ -203,7 +179,6 @@ SELECT *, 'source_b' AS source FROM source_b_transactions WHERE processed_date =
 #### System-Level Fix
 
 ```sql
--- Delta Lake: use Delta's built-in MERGE for upsert reconciliation
 -- MERGE is more efficient than EXCEPT + INSERT for reconciliation:
 MERGE INTO dwh_transactions t
 USING source_transactions s ON t.txn_id = s.txn_id
@@ -211,15 +186,11 @@ WHEN NOT MATCHED THEN INSERT *;
 -- Delta: uses bloom filter + data skipping to find matching rows
 -- Much faster than EXCEPT on large tables
 
--- Snowflake: MERGE + Change Tracking
 ALTER TABLE source_transactions ENABLE CHANGE_TRACKING;
 -- Instead of EXCEPT to find new rows, use change tracking stream (like Delta CDF)
 -- Only process changed rows (inserts, updates, deletes) since last sync
-```
-
-```sql
-
 ---
 
 ---
+
 

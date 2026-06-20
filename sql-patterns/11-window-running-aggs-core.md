@@ -24,8 +24,6 @@ Compute cumulative or moving aggregates (SUM, AVG, COUNT, MIN, MAX) over an orde
 
 ### Boilerplate
 
-```
-
 ```sql
 -- Pattern: Cumulative SUM (running total)
 SELECT
@@ -61,10 +59,6 @@ SELECT
         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS all_time_high_so_far
 FROM daily_prices;
-```
-
-```sql
-
 ---
 
 ### ROWS BETWEEN vs RANGE BETWEEN — Deep Dive
@@ -92,8 +86,6 @@ The critical danger: **the default when you have an ORDER BY is RANGE-based**, a
 #### Frame boundary syntax
 
 Both ROWS and RANGE use the same boundary keywords:
-
-```
 
 ```sql
 FUNCTION() OVER (
@@ -130,10 +122,6 @@ ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING
 
 -- Only the current row (same as no frame for non-aggregate functions)
 ROWS BETWEEN CURRENT ROW AND CURRENT ROW
-```
-
-```sql
-
 ---
 
 #### ROWS BETWEEN — physical row offset
@@ -187,8 +175,6 @@ Key observations:
 
 This is the most important gotcha in all of window functions:
 
-```
-
 ```sql
 -- This looks innocent but has the default RANGE frame:
 SELECT
@@ -201,8 +187,6 @@ SELECT
         -- default is: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS running_total
 FROM trades;
-```
-
 ```sql
 
 With data:
@@ -241,8 +225,6 @@ user_id | trade_date  | amount | running_total
 
 ```sql
 
-```
-
 ```sql
 -- Always be explicit to avoid the tie-expansion trap:
 SUM(amount) OVER (
@@ -250,10 +232,6 @@ SUM(amount) OVER (
     ORDER BY trade_date
     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW   -- ← explicit ROWS
 )
-```
-
-```sql
-
 ---
 
 #### When to use ROWS
@@ -267,8 +245,6 @@ Use `ROWS` in the vast majority of cases:
 | Any ORDER BY column with possible ties | `ROWS` — avoids tie-expansion surprises |
 | FIRST_VALUE / LAST_VALUE | Always use `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` |
 | ROW_NUMBER, RANK, LAG, LEAD | Frame clause not applicable — these ignore it |
-
-```
 
 ```sql
 -- 7-row rolling average (last 7 data points, not last 7 days)
@@ -284,10 +260,6 @@ SUM(amount) OVER (
     ORDER BY executed_at      -- timestamp: likely unique, but use ROWS anyway
     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 )
-```
-
-```sql
-
 ---
 
 #### When to use RANGE
@@ -299,8 +271,6 @@ Use `RANGE` when you want to aggregate **all rows that share the same ORDER BY v
 | "Include all rows tied at this date in the running total" | `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` |
 | Time-distance window on sparse/irregular dates | `RANGE BETWEEN INTERVAL '7' DAY PRECEDING AND CURRENT ROW` |
 | Grand total that must equal the same value for all tied rows | `RANGE` |
-
-```
 
 ```sql
 -- Time-based rolling 7-day window (irregular dates — RANGE is the right tool here)
@@ -317,15 +287,6 @@ SUM(amount) OVER (
     PARTITION BY user_id
     RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
-```
-
-> **Note on RANGE with intervals:** Support for `RANGE BETWEEN INTERVAL ... PRECEDING` is available in PostgreSQL, BigQuery, DuckDB, and Databricks SQL. MySQL 8+, SQL Server 2022+, and Snowflake support it to varying degrees. For maximum portability, convert dates to epoch integers and use numeric RANGE offsets, or use the self-join approach for time-based windows.
-
----
-
-#### ROWS vs RANGE — Decision guide
-
-```
 Is your ORDER BY column unique (no ties possible)?
   └─ Yes → Either works, but ROWS is safer habit
   └─ No  → Do you WANT all tied rows to be treated as one logical group?
@@ -340,19 +301,12 @@ Do you want all rows within N days/units of the current row's value?
 
 Do you want the whole partition?
   └─ Either works; ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING is clearest
-```
-
-```sql
-
 ---
 
-#### GROUPS BETWEEN (PostgreSQL 11+, DuckDB)
 
 A third frame mode you may encounter:
 
 `GROUPS` counts **distinct ORDER BY values** (not physical rows, not value distances). "1 GROUPS PRECEDING" means "the group of rows with the immediately preceding distinct value".
-
-```
 
 ```sql
 -- GROUPS frame: 1 preceding distinct date + current date group
@@ -364,9 +318,6 @@ SUM(amount) OVER (
 -- For dates: 2024-01-01 (100, 200), 2024-01-02 (150)
 -- Row on 2024-01-02 sees frame = {all Jan 1 rows} + {all Jan 2 rows} = 100+200+150 = 450
 -- Useful when you want "current group + N groups back" regardless of how many rows are in each group
-```
-
-```sql
-
 ---
+
 

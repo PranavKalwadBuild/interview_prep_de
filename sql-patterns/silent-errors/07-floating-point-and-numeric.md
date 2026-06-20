@@ -107,18 +107,11 @@ FROM data;
 ```
 
 **How to catch it:**
-```sql
--- Audit division expressions for type mixing:
--- In Snowflake/PostgreSQL, SYSTEM$TYPEOF or pg_typeof can reveal result types:
-SELECT pg_typeof(revenue / total_costs) FROM financial_summary LIMIT 1;
--- If result is 'double precision' when you expected 'numeric', you have implicit FLOAT promotion.
-```
 
 **Real-world trigger:** Tax calculation pipeline. Tax rate stored as FLOAT (from a legacy system). Tax base stored as NUMERIC. The product `tax_base * tax_rate` promotes to FLOAT, introduces rounding, and the computed tax differs from the auditor's calculation by $0.01 for some line items — which triggers an automated compliance flag.
 
 ---
 
-### ROUND Banker's Rounding in PostgreSQL vs Half-Up in Snowflake/MySQL
 
 **What it looks like:**
 ```sql
@@ -127,7 +120,6 @@ SELECT ROUND(amount, 2) AS rounded_amount FROM financial_records;
 
 **What actually happens:**
 - PostgreSQL applies **banker's rounding** (round-half-to-even) for NUMERIC types: `ROUND(2.5) = 2`, `ROUND(3.5) = 4`.
-- Snowflake applies **round-half-away-from-zero** (standard rounding): `ROUND(2.5) = 3`, `ROUND(3.5) = 4`.
 - MySQL applies **round-half-away-from-zero**: `ROUND(2.5) = 3`.
 
 The same `ROUND()` call on the same value produces different results depending on the engine. Code migrated between engines silently changes rounding behavior for all `.5` cases.
@@ -135,30 +127,9 @@ The same `ROUND()` call on the same value produces different results depending o
 **Why it's insidious:** For individual transactions, the difference is exactly $0.005 or less. The discrepancy only becomes visible when aggregating many rounded values — where banker's rounding tends to be unbiased (half round up, half round down) while half-up rounding systematically overstates the total by exactly `$0.005 × count_of_half_values`.
 
 **Minimal repro:**
-```sql
--- PostgreSQL (banker's rounding for NUMERIC):
-SELECT ROUND(2.5::NUMERIC, 0),   -- 2 (rounds to nearest even)
-       ROUND(3.5::NUMERIC, 0),   -- 4 (rounds to nearest even)
-       ROUND(4.5::NUMERIC, 0);   -- 4 (rounds to nearest even)
-
--- Snowflake (half-away-from-zero):
-SELECT ROUND(2.5, 0),  -- 3
-       ROUND(3.5, 0),  -- 4
-       ROUND(4.5, 0);  -- 5
-
--- Cross-engine consistent rounding (always half-up):
-SELECT FLOOR(amount + 0.5) AS manual_round_half_up  -- works everywhere
-```
 
 **How to catch it:**
-```sql
--- Test on your engine:
-SELECT ROUND(0.5, 0), ROUND(1.5, 0), ROUND(2.5, 0), ROUND(3.5, 0);
--- If output is 0,2,2,4 → banker's rounding (PostgreSQL NUMERIC)
--- If output is 1,2,3,4 → half-up rounding (Snowflake, MySQL)
-```
 
-**Real-world trigger:** Financial reporting model migrated from PostgreSQL to Snowflake. Unit price rounding for invoices silently changes for all ".5" cent values. Invoices are over by $0.005 per line item with a half-cent value. Over 2 million monthly invoices, the total discrepancy exceeds $1,000 per month — detectable only in aggregate reconciliation.
 
 ---
 
@@ -170,7 +141,6 @@ SELECT SUM(page_views) AS total_views FROM web_analytics;
 -- page_views is INT (32-bit, max ~2.1 billion)
 ```
 
-**What actually happens:** In some engines and configurations, `SUM(INT)` can overflow silently. MySQL with certain configurations returns a negative number when the sum exceeds `2^31 - 1`. PostgreSQL promotes `SUM(INT)` to BIGINT automatically, avoiding the issue. SQL Server may return an arithmetic overflow error (not silent). Snowflake promotes to BIGINT.
 
 The silent case: MySQL without strict mode, or any engine where the intermediate accumulator wraps around, returns a plausible-looking negative number or wrong positive number with no error.
 
@@ -208,18 +178,8 @@ CREATE TABLE rates AS
 SELECT 1 / 3 AS rate;  -- what precision does 'rate' get?
 ```
 
-**What actually happens:** `1 / 3` where both operands are integers returns `0` (integer division). `1.0 / 3` returns a NUMERIC/FLOAT depending on the engine, with engine-specific scale. In Snowflake, `1.0 / 3` returns `0.333333333` (to 9 decimal places). When stored in a table with a declared column precision lower than 9, the value is silently truncated.
 
 **Minimal repro:**
-```sql
--- Snowflake: NUMERIC(18,2) column
-CREATE OR REPLACE TEMP TABLE rate_store (rate NUMERIC(18,2));
-INSERT INTO rate_store SELECT 1.0 / 3;
-SELECT * FROM rate_store;  -- returns 0.33 (truncated from 0.333333...)
-
--- Compare to:
-SELECT 1.0::NUMERIC(18,10) / 3::NUMERIC(18,10);  -- 0.3333333333 (full precision)
-```
 
 **How to catch it:**
 ```sql
@@ -246,7 +206,6 @@ FROM products;
 
 **What actually happens:** If `price` is `NUMERIC(10,2)`, `AVG()` in different engines returns different precision:
 - PostgreSQL: `AVG(NUMERIC)` returns `NUMERIC` with full precision.
-- Snowflake: `AVG(NUMERIC(10,2))` may return `FLOAT` in some contexts.
 - MySQL: `AVG()` returns a DOUBLE (floating-point).
 
 The implicit type promotion means a column you believe is NUMERIC (exact decimal) may actually be FLOAT (IEEE approximation) in the result set, silently losing exactness.

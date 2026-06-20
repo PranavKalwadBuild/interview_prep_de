@@ -25,8 +25,6 @@
 
 ### Boilerplate — Manual Pivot (CASE WHEN)
 
-```
-
 ```sql
 -- Pivot: rows of (user_id, month, volume) → one column per month
 SELECT
@@ -99,7 +97,6 @@ SUM(CASE WHEN category = 'Pro'      THEN revenue END) AS pro,
 SELECT DISTINCT category FROM products;  -- run this first to see all categories
 -- Then update the pivot query OR use dynamic SQL
 
--- Dynamic SQL approach (Snowflake):
 -- Cannot be done in pure SQL — requires stored procedure or application-layer logic
 -- In dbt: use `{% for cat in categories %}` Jinja2 loop to generate dynamic columns
 ```
@@ -120,24 +117,6 @@ FROM monthly_revenue GROUP BY product_id;
 SELECT DISTINCT category FROM products
 WHERE category NOT IN ('Basic', 'Pro', 'Premium');
 -- Run this nightly; if it returns rows, update the pivot query before the next report
-```
-
----
-
-### At Scale
-
-#### Failure Mechanism
-
-The CASE WHEN pivot performs **one full GROUP BY scan** per column — which is actually efficient (single pass). The scale problem is different:
-
-- 20+ pivot columns with `SUM(CASE WHEN ...)`: the resulting row is very wide
-- Wide rows cause **columnar storage inefficiency** in column-store engines (Snowflake, Redshift, BigQuery)
-- Dynamic categories (12 months, 50 products): if categories multiply, the pivot table explodes in columns
-- At 800M input rows: the GROUP BY that feeds the pivot is the expensive step
-
-#### Code-Level Fix
-
-```sql
 
 ```sql
 -- BEFORE: pivot with 12 month columns + 50 category combinations
@@ -173,24 +152,9 @@ FROM monthly_product_revenue GROUP BY product_id;
 
 #### System-Level Fix
 
-```sql
--- Prefer long format in storage; wide format only in presentation layers
--- Snowflake: PIVOT syntax (native, slightly faster than CASE WHEN)
-SELECT *
-FROM (SELECT product_id, month, revenue FROM monthly_product_revenue)
-PIVOT (SUM(revenue) FOR month IN ('Jan', 'Feb', 'Mar', ...));
-
--- BigQuery: PIVOT syntax (introduced 2022) — same performance as CASE WHEN
--- The key optimization is in the materialized pre-aggregation, not the pivot syntax itself
-
--- For dynamic pivots (unknown columns at query time):
--- Store in long format; use application-layer dynamic column generation
--- Never attempt dynamic PIVOT in pure SQL on large tables — use Python/pandas instead
-```
-
-```sql
 
 ---
 
 ---
+
 

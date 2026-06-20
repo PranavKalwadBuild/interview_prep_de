@@ -32,18 +32,6 @@ GROUP BY product_name
 ORDER BY product_name;
 ```sql
 
-```sql
--- SQL Server native PIVOT syntax
-SELECT product_name, [1] AS Jan, [2] AS Feb, [3] AS Mar
-FROM (
-    SELECT product_name, MONTH(sale_date) AS month_num, amount
-    FROM sales
-) src
-PIVOT (
-    SUM(amount)
-    FOR month_num IN ([1], [2], [3])
-) pvt;
-```sql
 
 ```sql
 -- Unpivot: columns back to rows (reverse of pivot)
@@ -55,7 +43,6 @@ UNION ALL
 SELECT product_name, 'Mar',          mar_sales          FROM pivoted_sales;
 ```
 
-> **Key insight:** The CASE WHEN approach works in every SQL dialect and should be your default. The native `PIVOT` syntax is SQL Server / Oracle specific.
 
 ---
 
@@ -113,31 +100,20 @@ JOIN (
     GROUP BY full_name, dept_id
     HAVING COUNT(*) > 1
 ) dups USING (full_name, dept_id);
-```sql
-
 ---
 
 ### Q4. Delete Duplicates — Keep One
 
 **The question:** "Remove duplicate rows from the employees table, keeping only the row with the lowest emp_id."
 
-```sql
--- CTE + ROW_NUMBER approach (works in PostgreSQL, SQL Server, Snowflake)
-WITH ranked AS (
-    SELECT emp_id,
-           ROW_NUMBER() OVER (
-               PARTITION BY full_name, dept_id
-               ORDER BY emp_id ASC      -- keep the lowest emp_id
-           ) AS rn
-    FROM employees
-)
-DELETE FROM employees
-WHERE emp_id IN (
-    SELECT emp_id FROM ranked WHERE rn > 1
-);
-```
 
 > **Gotcha:** Some engines (MySQL, older versions) don't allow deleting directly from a CTE. Wrap the CTE output in a subquery for the `IN` clause.
+> 
+> **Why it happens:** Certain SQL dialects (e.g., MySQL < 8.0, older versions) treat CTEs as read-only for modification statements, preventing DELETE/UPDATE on them.
+> 
+> **Example:** `WITH cte AS (SELECT id FROM temp) DELETE FROM cte WHERE id = 1;` fails in MySQL 5.7.
+> 
+> **Fix:** Use a subquery: `DELETE FROM temp WHERE id IN (SELECT id FROM (SELECT id FROM temp) AS cte);` or store the CTE result in a temporary table.
 
 ---
 
@@ -190,6 +166,12 @@ WHERE customer_id NOT IN (
 ```
 
 > **Gotcha:** `NOT IN` with a subquery that can return NULL values will return zero rows. Always use `NOT EXISTS` or `LEFT JOIN IS NULL` for anti-joins.
+> 
+> **Why it happens:** NOT IN (list) evaluates to UNKNOWN if any element in the list is NULL, making the overall predicate UNKNOWN (treated as false) for all rows.
+> 
+> **Example:** `SELECT * FROM users WHERE id NOT IN (SELECT manager_id FROM depts WHERE manager_id IS NULL);` returns no rows even if some ids are not in the list, because the subquery returns a NULL.
+> 
+> **Fix:** Use NOT EXISTS: `SELECT * FROM users u WHERE NOT EXISTS (SELECT 1 FROM depts d WHERE d.manager_id = u.id);` or use LEFT JOIN … IS NULL: `SELECT * FROM users u LEFT JOIN depts d ON u.id = d.manager_id WHERE d.manager_id IS NULL;`
 
 ---
 
@@ -260,8 +242,6 @@ SELECT
         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS customer_running_total
 FROM transactions;
-```sql
-
 ---
 
 ### Q9. Month-over-Month Growth Rate
@@ -286,8 +266,6 @@ SELECT
     2)                                                           AS mom_growth_pct
 FROM monthly_revenue
 ORDER BY month;
-```sql
-
 ---
 
 ### Q10. Top N per Group
@@ -296,3 +274,4 @@ ORDER BY month;
 
 ```sql
 WITH ranked AS (
+

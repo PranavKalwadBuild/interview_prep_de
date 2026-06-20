@@ -254,47 +254,7 @@ LEFT JOIN daily_agg d ON s.dt = d.txn_date;
 
 #### Problem — Duplicate first-event rows inflate cohort size
 
-```sql
--- Cohort analysis assigns each user to a cohort based on their first purchase month.
--- If a user has two rows for their "first" purchase (webhook retry), they get assigned
--- to two cohort months — counted twice in both.
-
-WITH first_purchase AS (
-    SELECT user_id, MIN(purchase_date) AS cohort_date
-    FROM purchases
-    GROUP BY user_id    -- MIN guarantees one cohort date per user even with duplicates
-),
--- If you use ROW_NUMBER() instead:
-first_purchase_wrong AS (
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY purchase_date) AS rn
-    FROM purchases
-)
--- This is fine IF purchase_date is unique per user. But if two purchases share
--- the same purchase_date (duplicate), rn=1 is non-deterministic → different purchase_id
--- selected on each run → cohort month can vary.
-
--- FIX: use MIN(purchase_date) for cohort assignment (stable, deterministic, dedup-safe)
-WITH cohorts AS (
-    SELECT user_id, DATE_TRUNC('month', MIN(purchase_date)) AS cohort_month
-    FROM purchases
-    GROUP BY user_id
-),
--- For retention: also dedup activity events per (user_id, activity_month)
-activity AS (
-    SELECT DISTINCT
-        user_id,
-        DATE_TRUNC('month', activity_date) AS activity_month
-    FROM user_activity     -- DISTINCT removes duplicate activity rows
-)
-SELECT
-    c.cohort_month,
-    DATEDIFF('month', c.cohort_month, a.activity_month) AS months_since_cohort,
-    COUNT(DISTINCT a.user_id) AS retained_users
-FROM cohorts c
-JOIN activity a ON c.user_id = a.user_id
-GROUP BY 1, 2;
-```
 
 ---
+
 

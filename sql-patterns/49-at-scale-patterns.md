@@ -53,7 +53,6 @@
 ### 34-8. Top-N per Group at Scale
 
 > Full detail in [Pattern 8 — Top-N per Group → At Scale](#8-top-n-per-group).
-> Critical: RANK scans full table then filters — use QUALIFY + LIMIT or pre-filter with subquery.
 
 ---
 
@@ -116,7 +115,7 @@
 ### 34-17. Recursive CTEs at Scale
 
 > Full detail in [Pattern 17 — Recursive CTEs → At Scale](#17-recursive-ctes-hierarchies).
-> Critical: depth limit hit on deep hierarchies — flatten to adjacency list or use CONNECT BY.
+> Critical: depth limit hit on deep hierarchies — materialize a closure table or maintain a path column.
 
 ---
 
@@ -194,42 +193,6 @@
 
 Before deploying any SQL pattern on a table with > 50M rows:
 
-```
-
-TABLE DESIGN
-□ Is the table partitioned on the most common filter column? (usually a date column)
-□ Is the partition granularity appropriate? (day for high-volume; month for low-volume)
-□ Is there a second-level clustering key for the most common join/filter column?
-□ Will the partition count stay bounded? (high-cardinality partition key → file explosion)
-□ Is the file size in the right range? (128MB–512MB per file; not 1KB or 10GB)
-□ Are bloom filters enabled for high-selectivity lookup columns? (txn_id, user_id, account_id)
-
-QUERY DESIGN
-□ Does every query include a partition column filter in WHERE? (no full table scan)
-□ Is the join order correct? (smaller filtered table on the left/broadcast side)
-□ Is COUNT(DISTINCT) on a > 100M row column? → replace with APPROX_COUNT_DISTINCT
-□ Is PERCENTILE_CONT on > 100M rows? → replace with PERCENTILE_APPROX / t-digest
-□ Is there a self-join or recursive CTE? → replace with LAG/LEAD or pre-computed closure table
-□ Is a CTE referenced multiple times? (Spark: re-executes each reference) → cache/materialise
-
-AGGREGATION DESIGN
-□ Is the GROUP BY producing > 10M output rows? → pre-aggregate to coarser granularity
-□ Is there a GROUP BY + window function in the same query? → profile for double shuffle
-□ Is the result of the query used repeatedly? → materialise it as a summary table
-
-WRITE DESIGN
-□ Are new rows being inserted in small batches from streaming? → enable auto-compaction
-□ Is MERGE being used on a large table? → ensure bloom filter on the merge key
-□ Is the SCD2 table receiving many small updates? → OPTIMIZE/VACUUM weekly
-
-MONITORING
-□ Is query execution time tracked? → alert on > 5 min for interactive queries
-□ Is data skew monitored? → alert when one Spark partition > 10× average size
-□ Is partition count monitored? → alert when table has > 10,000 partitions
-□ Is file count monitored? → alert when table has > 100,000 files
-□ Is the scan ratio tracked? → (bytes scanned / bytes total) < 5% = well-partitioned
-
-```
 
 *Guide authored: 14 March 2026 | Universal SQL Interview Preparation Guide for Data Engineers*
 

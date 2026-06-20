@@ -81,7 +81,6 @@ WHEN NOT MATCHED THEN                            -- INSERT: open the new version
 | Approach | Pros | Cons | Best for |
 |---|---|---|---|
 | **Two-phase (Iterations 0-7)** | Explicit and readable; easy to debug if one phase fails; works on all platforms including older MySQL/PostgreSQL | Two statements — not atomic unless wrapped in a transaction; harder to schedule as a single unit | Any platform; teams that value debuggability; environments without strong MERGE support |
-| **Single MERGE (Iteration 8)** | Atomic — both expire and insert happen in one statement; no transaction wrapper needed; one round-trip to the engine | Requires platform MERGE support; risk of ambiguous match error if source has duplicate `sk_customer` values; harder to reason about for newcomers | Snowflake, BigQuery, SQL Server, Delta Lake; pipelines where atomicity matters; dbt models using `merge` strategy |
 
 #### Duplicate guard for the INSERT branch
 
@@ -278,23 +277,6 @@ LEFT JOIN user_tiers ut
 The temporal join pattern at scale:
 
 ```sql
-
-```sql
-JOIN user_tiers ut
-    ON t.user_id = ut.user_id
-    AND t.txn_date >= ut.valid_from
-    AND (ut.valid_to IS NULL OR t.txn_date < ut.valid_to)
-```
-
-This is a **range join** (non-equi join). In distributed SQL, range joins cannot use hash join — they fall back to **nested loop join** or **sort-merge join with inequalities**:
-
-- Nested loop: O(N × M) — 800M transactions × 10 versions per user = 8B comparisons
-- Spark: range join is rewritten as a sort-merge join with skewed ranges, still very expensive
-- Snowflake: uses **range join optimization** but requires specific hints or auto-detection
-
-#### Code-Level Fix
-
-```sql
 -- BEFORE: expensive range join on 800M transactions × large SCD2 table
 SELECT t.txn_id, ut.tier
 FROM transactions t   -- 800M rows
@@ -303,28 +285,21 @@ JOIN user_tiers ut    -- 200M rows (many historical versions)
     AND t.txn_date >= ut.valid_from
     AND (ut.valid_to IS NULL OR t.txn_date < ut.valid_to);
 
--- FIX 1: Convert range join to equi-join using date bucketing
--- Assign each SCD2 version a set of month keys it covers
--- Then join on (user_id, month_key) — equi-join, hash joinable
-WITH scd2_monthly AS (
-    SELECT ut.user_id, ut.tier,
-        EXPLODE(SEQUENCE(
-            DATE_TRUNC('month', ut.valid_from),
-            DATE_TRUNC('month', COALESCE(ut.valid_to, CURRENT_DATE)),
-            INTERVAL 1 MONTH
-        )) AS month_key
-    FROM user_tiers ut   -- expand each version to cover its months: 200M → 600M rows (3 avg months)
-),
-txn_with_month AS (
+-- FIX 1: Add a month bridge table so most of the join is equality-based.
+-- Populate scd2_month_bridge during ETL with one row per covered month.
+WITH txn_with_month AS (
     SELECT txn_id, user_id, txn_date,
         DATE_TRUNC('month', txn_date) AS month_key
     FROM transactions
 )
 SELECT t.txn_id, s.tier
 FROM txn_with_month t
-JOIN scd2_monthly s ON t.user_id = s.user_id AND t.month_key = s.month_key;
--- Now an equi-join (user_id + month_key) → hash join eligible
--- 10× faster than range join for most workloads
+JOIN scd2_month_bridge s
+    ON t.user_id = s.user_id
+   AND t.month_key = s.month_key
+   AND t.txn_date >= s.valid_from
+   AND (s.valid_to IS NULL OR t.txn_date < s.valid_to);
+-- The month key narrows candidates before the exact range predicate is applied.
 
 -- FIX 2: Denormalize the current tier directly into the fact table at write time
 -- If 95% of queries only need the tier AT TIME OF TRANSACTION (not arbitrary point-in-time):
@@ -332,48 +307,23 @@ JOIN scd2_monthly s ON t.user_id = s.user_id AND t.month_key = s.month_key;
 -- Update it at ingestion via a lookup: SELECT tier FROM user_tiers WHERE valid_to IS NULL
 -- Query: SELECT txn_id, tier_at_txn FROM transactions — zero join needed at query time
 
--- FIX 3: Snowflake time-travel for recent point-in-time queries
--- Instead of SCD2, use TIME TRAVEL to query the dimension table as of a past date:
-SELECT t.txn_id, ut.tier
-FROM transactions t
-JOIN user_tiers AT (TIMESTAMP => t.executed_at) ut ON t.user_id = ut.user_id;
--- Snowflake TIME TRAVEL: access historical state of user_tiers at any point in the last 90 days
--- No SCD2 maintenance needed for recent data; SCD2 for data older than 90 days
 ```
 
 #### System-Level Fix
 
 ```sql
--- Delta Lake: configure SCD2 table for fast range join
 CREATE TABLE user_tiers (
-    user_id     STRING,
-    tier        STRING,
+    user_id     BIGINT,
+    tier        VARCHAR(10),
     valid_from  DATE,
-    valid_to    DATE   -- NULL for current
-)
-USING DELTA
-PARTITIONED BY (valid_from)   -- partition by start date: prune to relevant periods
-TBLPROPERTIES (
-    'delta.dataSkippingNumIndexedCols' = '4'
+    valid_to    DATE
 );
--- Z-order co-locates by user_id within each valid_from partition:
-OPTIMIZE user_tiers ZORDER BY (user_id);
--- Range join: Spark reads only partitions where valid_from <= txn_date
--- AND uses data skipping on user_id within those partitions
 
--- Snowflake: CLUSTER BY user_id for range join optimization
-ALTER TABLE user_tiers CLUSTER BY (user_id, valid_from);
--- Range join on (user_id + date range): Snowflake auto-detects range join pattern
--- and uses micro-partition pruning on both user_id and date range
+CREATE INDEX idx_user_tiers_user_from
+    ON user_tiers (user_id, valid_from);
 
--- Redshift: SORTKEY for range join
-CREATE TABLE user_tiers (user_id BIGINT, tier VARCHAR(10), valid_from DATE, valid_to DATE)
-DISTSTYLE KEY DISTKEY(user_id)
-COMPOUND SORTKEY(user_id, valid_from);
--- Range join filter on user_id + valid_from: zone map skips most blocks
+-- The access path narrows candidates by user before applying the date range.
 ```
-
-```sql
 
 ---
 

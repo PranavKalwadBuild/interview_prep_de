@@ -1,223 +1,241 @@
-<!-- Part of sql-patterns: Date Functions — Current Date, Extracting Parts, Truncation, Arithmetic, Difference, Formatting, Parsing -->
-<!-- Source: sql_patterns.md lines 1188–1407 -->
+<!-- Part of sql-patterns: Date Functions — ANSI-first date and timestamp handling -->
 
 ## M. Date Functions & Transformations
 
 ### Why dates are hard in SQL
 
-Date/time handling is the single most engine-specific area of SQL. The same operation can be written 3–4 different ways depending on whether you're in MySQL, PostgreSQL, Snowflake, BigQuery, Spark SQL, or SQL Server. This section covers the **conceptual operations** that exist in every engine, followed by the most common syntax variants, and then the most frequently needed transformation patterns.
+Date logic is where otherwise portable SQL usually starts to drift. The safest interview and production habit is to express the idea in modern ANSI SQL first:
+
+- Use typed `DATE`, `TIME`, and `TIMESTAMP` values instead of formatted strings.
+- Use `CURRENT_DATE`, `CURRENT_TIMESTAMP`, `EXTRACT`, `CAST`, and `INTERVAL` where possible.
+- Use half-open timestamp ranges: `>= start_ts AND < next_start_ts`.
+- Avoid applying functions to indexed, partitioned, or sorted timestamp columns in `WHERE`.
+- If ANSI SQL has no common implementation, show both PostgreSQL and MySQL explicitly.
 
 ---
 
 ### A. Current Date and Time
 
-| Concept | Standard / Most portable | PostgreSQL | MySQL | Snowflake | BigQuery | Spark SQL |
-|---|---|---|---|---|---|---|
-| Current date (no time) | `CURRENT_DATE` | `CURRENT_DATE` | `CURDATE()` | `CURRENT_DATE` | `CURRENT_DATE()` | `CURRENT_DATE` |
-| Current timestamp | `CURRENT_TIMESTAMP` | `NOW()` | `NOW()` | `CURRENT_TIMESTAMP` | `CURRENT_TIMESTAMP()` | `CURRENT_TIMESTAMP` |
-| Current timestamp with TZ | `CURRENT_TIMESTAMP` | `NOW()` | — | `SYSDATE()` | `CURRENT_TIMESTAMP()` | `now()` |
-
 ```sql
--- Most portable — works in PostgreSQL, Snowflake, BigQuery, Spark, SQL Server:
-SELECT CURRENT_DATE          -- date only (no time)
-SELECT CURRENT_TIMESTAMP     -- date + time (with timezone in pg/snowflake)
+SELECT
+    CURRENT_DATE      AS current_date_value,
+    CURRENT_TIMESTAMP AS current_timestamp_value;
+```
 
--- MySQL alternative:
-SELECT CURDATE(), NOW()
-```sql
+**Gotchas and edge cases**
+
+- `CURRENT_DATE` has no time component. It is appropriate for date-level reporting, not exact event ordering.
+- `CURRENT_TIMESTAMP` is a timestamp. It may include timezone semantics depending on the database and column type, so do not mix it casually with local wall-clock timestamps.
+- For reproducible pipelines, pass an explicit `as_of_date` or `run_timestamp` parameter instead of calling `CURRENT_DATE` in many places.
 
 ---
 
-### B. Extracting Parts from a Date / Timestamp
+### B. Extracting Parts
 
-The most universally supported approach is `EXTRACT()`:
+`EXTRACT` is the most portable way to pull date parts.
 
 ```sql
--- EXTRACT — works in PostgreSQL, Snowflake, BigQuery, MySQL 8+, Spark SQL
 SELECT
-    EXTRACT(YEAR   FROM executed_at) AS yr,
-    EXTRACT(MONTH  FROM executed_at) AS mo,
-    EXTRACT(DAY    FROM executed_at) AS dy,
-    EXTRACT(HOUR   FROM executed_at) AS hr,
-    EXTRACT(MINUTE FROM executed_at) AS mi,
-    EXTRACT(SECOND FROM executed_at) AS sc,
-    EXTRACT(DOW    FROM executed_at) AS day_of_week,   -- 0=Sun…6=Sat (PostgreSQL/Spark)
-    EXTRACT(DOY    FROM executed_at) AS day_of_year,
-    EXTRACT(WEEK   FROM executed_at) AS week_of_year,
-    EXTRACT(QUARTER FROM executed_at) AS quarter
+    EXTRACT(YEAR    FROM executed_at) AS executed_year,
+    EXTRACT(MONTH   FROM executed_at) AS executed_month,
+    EXTRACT(DAY     FROM executed_at) AS executed_day,
+    EXTRACT(HOUR    FROM executed_at) AS executed_hour,
+    EXTRACT(MINUTE  FROM executed_at) AS executed_minute,
+    EXTRACT(SECOND  FROM executed_at) AS executed_second
 FROM trades;
 ```
 
-**Engine-specific shorthand functions** (less portable, but common in interviews):
+**Gotchas and edge cases**
+
+- Week number, day-of-week, and quarter extraction are less portable than year/month/day. Define the business rule first: ISO week or calendar week, Monday start or Sunday start, fiscal quarter or calendar quarter.
+- Do not filter with `EXTRACT(YEAR FROM executed_at) = 2025` on large tables. It is readable but often prevents pruning or index usage. Prefer a range predicate:
 
 ```sql
--- MySQL / Spark SQL
-YEAR(executed_at)       MONTH(executed_at)      DAY(executed_at)
-HOUR(executed_at)       MINUTE(executed_at)     SECOND(executed_at)
-WEEKOFYEAR(executed_at) QUARTER(executed_at)    DAYOFWEEK(executed_at)
-
--- Snowflake
-YEAR(executed_at)       MONTH(executed_at)      DAY(executed_at)
-HOUR(executed_at)       MINUTE(executed_at)     DAYOFWEEK(executed_at)
-
--- BigQuery
-EXTRACT(YEAR FROM executed_at)     -- EXTRACT is the primary method
-DATE_PART('year', executed_at)     -- also supported
-
--- SQL Server
-YEAR(executed_at)       MONTH(executed_at)      DAY(executed_at)
-DATEPART(WEEKDAY, executed_at)     DATEPART(ISO_WEEK, executed_at)
-```sql
-
----
-
-### C. Date Truncation
-
-Truncation sets everything below a given unit to its minimum value (e.g., truncating a timestamp to month → first of that month at midnight).
-
-```sql
--- DATE_TRUNC — PostgreSQL, Snowflake, BigQuery, Spark SQL, DuckDB
-DATE_TRUNC('year',    executed_at)    -- 2024-01-01 00:00:00
-DATE_TRUNC('quarter', executed_at)    -- 2024-01-01 / 2024-04-01 / etc.
-DATE_TRUNC('month',   executed_at)    -- 2024-03-01 00:00:00
-DATE_TRUNC('week',    executed_at)    -- Monday of the week (ISO week)
-DATE_TRUNC('day',     executed_at)    -- 2024-03-15 00:00:00
-DATE_TRUNC('hour',    executed_at)    -- 2024-03-15 14:00:00
-DATE_TRUNC('minute',  executed_at)    -- 2024-03-15 14:22:00
-
--- MySQL equivalent (no DATE_TRUNC — use DATE_FORMAT or manual expression)
-DATE_FORMAT(executed_at, '%Y-%m-01')             -- truncate to month
-DATE_FORMAT(executed_at, '%Y-01-01')             -- truncate to year
-STR_TO_DATE(DATE_FORMAT(executed_at,'%Y%u Monday'), '%X%V %W')  -- truncate to week (complex)
-
--- SQL Server equivalent
-DATETRUNC(month, executed_at)   -- SQL Server 2022+
-DATEFROMPARTS(YEAR(executed_at), MONTH(executed_at), 1)  -- truncate to month (older)
+WHERE executed_at >= TIMESTAMP '2025-01-01 00:00:00'
+  AND executed_at <  TIMESTAMP '2026-01-01 00:00:00'
 ```
 
-> **Rule of thumb for grouping by time period:** always prefer `DATE_TRUNC` over `DATE_FORMAT` + string. `DATE_TRUNC` returns a proper date/timestamp that sorts correctly; string formats lose sort order unless you format as `YYYY-MM`.
-
 ---
 
-### D. Date Arithmetic — Adding and Subtracting
+### C. Date Truncation and Period Starts
+
+Modern ANSI SQL does not define one universally implemented `DATE_TRUNC` function. For portability, write period boundaries as ranges. When you need a period-start value, use PostgreSQL/MySQL fallbacks.
 
 ```sql
--- Standard SQL interval syntax (PostgreSQL, DuckDB, Spark SQL):
-executed_at + INTERVAL '7 days'
-executed_at - INTERVAL '1 month'
-executed_at + INTERVAL '2 hours 30 minutes'
-
--- Snowflake: DATEADD function
-DATEADD(day,   7,  executed_at)
-DATEADD(month, -1, executed_at)
-DATEADD(year,  1,  executed_at)
-
--- MySQL: DATE_ADD / DATE_SUB
-DATE_ADD(executed_at, INTERVAL 7 DAY)
-DATE_SUB(executed_at, INTERVAL 1 MONTH)
-
--- BigQuery: DATE_ADD / DATE_SUB / TIMESTAMP_ADD
-DATE_ADD(trade_date, INTERVAL 7 DAY)
-TIMESTAMP_ADD(executed_at, INTERVAL 30 MINUTE)
-
--- SQL Server: DATEADD
-DATEADD(day,    7,  executed_at)
-DATEADD(month, -1,  executed_at)
-
--- Spark SQL: date_add / date_sub (days only) or interval syntax
-date_add(trade_date, 7)
-date_sub(trade_date, 30)
-executed_at + INTERVAL 1 HOUR
-```sql
-
----
-
-### E. Date Difference — Days Between Two Dates
-
-```sql
--- DATEDIFF — most engines support this but argument ORDER differs!
-
--- MySQL / Spark SQL: DATEDIFF(end_date, start_date) → positive if end > start
-DATEDIFF(end_date, start_date)
-
--- Snowflake: DATEDIFF(unit, start_date, end_date)
-DATEDIFF('day',    start_date, end_date)
-DATEDIFF('month',  start_date, end_date)
-DATEDIFF('year',   start_date, end_date)
-DATEDIFF('hour',   start_ts,   end_ts)
-DATEDIFF('minute', start_ts,   end_ts)
-
--- BigQuery: DATE_DIFF(end_date, start_date, unit)
-DATE_DIFF(end_date,   start_date, DAY)
-DATE_DIFF(end_date,   start_date, MONTH)
-TIMESTAMP_DIFF(end_ts, start_ts,  MINUTE)
-
--- PostgreSQL: direct subtraction returns an interval
-end_date - start_date                          -- returns INTEGER (days) for DATE types
-EXTRACT(DAY FROM (end_ts - start_ts))          -- extract days from interval
-DATE_PART('day', end_ts - start_ts)            -- same as above
-
--- SQL Server: DATEDIFF(unit, start_date, end_date)
-DATEDIFF(DAY,    start_date, end_date)
-DATEDIFF(MONTH,  start_date, end_date)
-DATEDIFF(MINUTE, start_ts,   end_ts)
+-- ANSI-first filtering: all events in March 2025
+WHERE executed_at >= TIMESTAMP '2025-03-01 00:00:00'
+  AND executed_at <  TIMESTAMP '2025-04-01 00:00:00';
 ```
 
-> **Interview tip:** The most common mistake is reversing the argument order between MySQL and SQL Server/Snowflake. Always state which engine you're using and double-check the argument order.
+**PostgreSQL**
+
+```sql
+SELECT
+    DATE_TRUNC('month', executed_at) AS month_start,
+    DATE_TRUNC('day', executed_at)   AS day_start
+FROM trades;
+```
+
+**MySQL**
+
+```sql
+SELECT
+    CAST(DATE_FORMAT(executed_at, '%Y-%m-01') AS DATE) AS month_start,
+    CAST(executed_at AS DATE)                         AS day_start
+FROM trades;
+```
+
+**Gotchas and edge cases**
+
+- Truncating for display is fine. Truncating inside a `WHERE` predicate is often expensive.
+- Week starts are business definitions, not universal truths. Store a calendar table with `week_start_date`, `iso_week`, fiscal periods, and holiday flags when weekly reporting matters.
+- Month truncation should return a date/timestamp, not a string, unless the final output truly needs a label.
+
+---
+
+### D. Date Arithmetic
+
+ANSI SQL interval syntax is the cleanest default for adding or subtracting time.
+
+```sql
+SELECT
+    executed_at + INTERVAL '7' DAY    AS seven_days_later,
+    executed_at - INTERVAL '1' MONTH  AS one_month_earlier,
+    executed_at + INTERVAL '2' HOUR   AS two_hours_later
+FROM trades;
+```
+
+**PostgreSQL**
+
+```sql
+SELECT
+    executed_at + INTERVAL '7 days'   AS seven_days_later,
+    executed_at - INTERVAL '1 month'  AS one_month_earlier,
+    executed_at + INTERVAL '2 hours'  AS two_hours_later
+FROM trades;
+```
+
+**MySQL**
+
+```sql
+SELECT
+    DATE_ADD(executed_at, INTERVAL 7 DAY)    AS seven_days_later,
+    DATE_SUB(executed_at, INTERVAL 1 MONTH)  AS one_month_earlier,
+    DATE_ADD(executed_at, INTERVAL 2 HOUR)   AS two_hours_later
+FROM trades;
+```
+
+**Gotchas and edge cases**
+
+- Adding one month is not the same as adding 30 days. `2025-01-31 + 1 month` needs a clear end-of-month rule.
+- Always confirm whether the column is a `DATE` or a `TIMESTAMP`; adding hours to a `DATE` may cast or truncate depending on implementation.
+- For retention windows, prefer date ranges over computed integer differences.
+
+---
+
+### E. Date Difference
+
+
+**PostgreSQL**
+
+```sql
+SELECT
+    end_date - start_date AS days_between,
+    EXTRACT(EPOCH FROM (end_ts - start_ts)) / 3600.0 AS hours_between
+FROM events;
+```
+
+**MySQL**
+
+
+**Gotchas and edge cases**
+
+- Date differences count date boundaries, not necessarily complete elapsed 24-hour periods.
+- Month differences are especially tricky because months have different lengths. For billing and cohorts, compare period-start dates rather than dividing days by 30.
 
 ---
 
 ### F. Formatting Dates as Strings
 
+Formatting should usually happen at the presentation layer. In SQL, keep dates typed for joins, filtering, sorting, and grouping.
+
+**Why presentation layer?** Date formatting introduces engine-specific behavior, prevents index usage, and complicates cross-database compatibility. Format only for final display.
+
+**PostgreSQL**
+
 ```sql
--- PostgreSQL / Redshift
-TO_CHAR(executed_at, 'YYYY-MM-DD')
-TO_CHAR(executed_at, 'YYYY-MM')        -- for month grouping as string
-TO_CHAR(executed_at, 'Day')            -- full weekday name (Monday)
-TO_CHAR(executed_at, 'DY')             -- abbreviated (Mon)
-TO_CHAR(executed_at, 'HH24:MI:SS')     -- time portion
+SELECT TO_CHAR(executed_at, 'YYYY-MM-DD') AS executed_date_label
+FROM trades;
+```
 
--- MySQL / Spark SQL
-DATE_FORMAT(executed_at, '%Y-%m-%d')
-DATE_FORMAT(executed_at, '%Y-%m')
-DATE_FORMAT(executed_at, '%W')         -- full weekday name
-DATE_FORMAT(executed_at, '%a')         -- abbreviated (Mon)
+**MySQL**
 
--- Snowflake / BigQuery
-TO_VARCHAR(executed_at, 'YYYY-MM-DD')  -- Snowflake
-FORMAT_DATE('%Y-%m', trade_date)       -- BigQuery (DATE only)
-FORMAT_TIMESTAMP('%Y-%m-%d', ts)       -- BigQuery (TIMESTAMP)
-
--- SQL Server
-FORMAT(executed_at, 'yyyy-MM-dd')
-CONVERT(VARCHAR, executed_at, 23)      -- ISO 8601 date
 ```sql
+SELECT DATE_FORMAT(executed_at, 'YYYY-MM-DD') AS executed_date_label
+FROM trades;
+```
+
+```sql
+SELECT TO_CHAR(executed_at, 'YYYY-MM-DD') AS executed_date_label
+FROM trades;
+```
+
+**MySQL**
+
+```sql
+SELECT DATE_FORMAT(executed_at, 'YYYY-MM-DD') AS executed_date_label
+FROM trades;
+```
+
+**Gotchas and edge cases in date formatting:**
+
+- **Inconsistent separators:** Some engines use different default separators based on locale settings
+- **Leading zeros:** Format padding varies (MM vs M for months, DD vs D for days)
+- **Case sensitivity:** Month/day names may be affected by database locale settings
+- **Performance impact:** Formatting prevents use of indexes on date columns in WHERE clauses
+- **Sorting issues:** Lexicographic sorting of formatted strings doesn't match chronological order unless using YYYY-MM-DD HH:MM:SS format
+- **Timezone loss:** Formatting often drops timezone information, leading to ambiguity in distributed systems
+- **Precision truncation:** Formatting to day level hides hour/minute/second components that may be significant for analysis
+
+**Best practices:**
+1. Always perform date formatting in the application layer or reporting tools
+2. If formatting must be done in SQL, document the engine-specific function used
+3. Use ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ) for maximum compatibility when string representation is necessary
+4. Consider creating database-specific views or functions to abstract formatting differences
+5. Test formatted output across target database engines to ensure consistency
+
 
 ---
 
 ### G. Parsing Strings into Dates
 
+Use `CAST` for ISO-formatted strings. For non-ISO formats, use PostgreSQL/MySQL parsing functions and validate failed parses explicitly.
+
 ```sql
--- CAST — most portable, works when string is in ISO 8601 format (YYYY-MM-DD):
-CAST('2024-03-15' AS DATE)
-CAST('2024-03-15 14:30:00' AS TIMESTAMP)
-TRY_CAST('2024-03-15' AS DATE)         -- Snowflake / SQL Server — returns NULL on failure
+SELECT
+    CAST('2025-03-15' AS DATE) AS parsed_date,
+    CAST('2025-03-15 14:30:00' AS TIMESTAMP) AS parsed_timestamp;
+```
 
--- PostgreSQL
-TO_DATE('15/03/2024', 'DD/MM/YYYY')
-TO_TIMESTAMP('15/03/2024 14:30', 'DD/MM/YYYY HH24:MI')
+**PostgreSQL**
 
--- MySQL / Spark SQL
-STR_TO_DATE('15/03/2024', '%d/%m/%Y')
-
--- Snowflake
-TO_DATE('15-03-2024', 'DD-MM-YYYY')
-TRY_TO_DATE('15-03-2024', 'DD-MM-YYYY')  -- NULL on failure
-
--- BigQuery
-PARSE_DATE('%d/%m/%Y', '15/03/2024')
-PARSE_TIMESTAMP('%d/%m/%Y %H:%M', '15/03/2024 14:30')
 ```sql
+SELECT
+    TO_DATE('15/03/2025', 'DD/MM/YYYY') AS parsed_date,
+    TO_TIMESTAMP('15/03/2025 14:30', 'DD/MM/YYYY HH24:MI') AS parsed_timestamp;
+```
 
----
+**MySQL**
+
+```sql
+SELECT
+    STR_TO_DATE('15/03/2025', '%d/%m/%Y') AS parsed_date,
+    STR_TO_DATE('15/03/2025 14:30', '%d/%m/%Y %H:%i') AS parsed_timestamp;
+```
+
+**Gotchas and edge cases**
+
+- Never assume free-form strings are valid dates. Profile invalid, blank, and ambiguous values before casting in a pipeline.
+- Ambiguous inputs like `03/04/2025` must be tied to an explicit format.
+- Store raw input and parsed output during ingestion if the source quality is uncertain; it makes bad-date audits possible later.
 

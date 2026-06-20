@@ -25,8 +25,6 @@ Compute multiple aggregations (counts, sums) for different subsets of data in a 
 
 ### Boilerplate
 
-```
-
 ```sql
 -- Count trades by type per user per day
 SELECT
@@ -99,7 +97,6 @@ SELECT
 FROM applications
 GROUP BY dept_id;
 
--- Alternative with FILTER syntax (PostgreSQL / DuckDB — cleaner and equivalent):
 SELECT
     dept_id,
     COUNT(*) FILTER (WHERE status = 'APPROVED') AS approved_count,
@@ -140,10 +137,6 @@ CASE
     WHEN txn_type = 'FEE'      THEN -amount   -- fees are debits
     ELSE 0                                    -- catch-all: log unexpected types separately
 END
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -157,8 +150,6 @@ Conditional aggregation (`SUM(CASE WHEN ... THEN amount END) × 20 conditions`) 
 - `GROUPING SETS` / `ROLLUP` / `CUBE` at scale: generates exponentially many groups — `CUBE(a,b,c,d)` = 16 grouping combinations × full scan each
 
 #### Code-Level Fix
-
-```
 
 ```sql
 -- BEFORE: conditional aggregation on raw transactions for every dashboard load
@@ -203,7 +194,6 @@ UNION ALL
 #### System-Level Fix
 
 ```sql
--- Snowflake: aggregate pre-computation with dynamic tables
 CREATE OR REPLACE DYNAMIC TABLE daily_trading_stats
   LAG = '10 minutes'
   WAREHOUSE = reporting_wh
@@ -215,21 +205,16 @@ SELECT user_id, txn_date,
 FROM transactions
 GROUP BY user_id, txn_date;
 
--- BigQuery: BI Engine for sub-second interactive queries on pre-aggregated tables
 -- Reserve BI Engine capacity for the reporting project
 -- Pre-aggregated tables served in-memory: < 1 second for any filter combination
 
--- Redshift: define a materialized view with REFRESH AUTO
 CREATE MATERIALIZED VIEW mv_daily_trading_stats
 AUTO REFRESH YES
 AS SELECT user_id, txn_date,
     SUM(CASE WHEN trade_type = 'BUY' THEN amount END) AS buy_vol
 FROM transactions GROUP BY user_id, txn_date;
-```
-
-```sql
-
 ---
 
 ---
+
 

@@ -25,8 +25,6 @@ Select the top N rows within each group (category, user, date, etc.).
 
 ### Boilerplate
 
-```
-
 ```sql
 -- Pattern: Top-3 trading pairs per user by volume
 WITH ranked AS (
@@ -174,85 +172,12 @@ If there are 500 trading pairs and each has 10M unique users → 5B intermediate
 
 ```sql
 
-```sql
--- BEFORE: top-3 traders per trading pair, full history
-WITH pair_volumes AS (
-    SELECT user_id, trading_pair, SUM(trade_amount) AS total_volume
-    FROM trades   -- 800M rows
-    GROUP BY user_id, trading_pair   -- → potentially 100M group rows
-),
-ranked AS (
-    SELECT *,
-        DENSE_RANK() OVER (PARTITION BY trading_pair ORDER BY total_volume DESC) AS rnk
-    FROM pair_volumes
-)
-SELECT * FROM ranked WHERE rnk <= 3;
-
--- FIX 1: Reduce to relevant window before aggregating
-WITH recent_trades AS (
-    SELECT user_id, trading_pair, trade_amount
-    FROM trades
-    WHERE txn_date >= CURRENT_DATE - 30   -- last 30 days: 800M → 30M rows
-),
-pair_volumes AS (
-    SELECT user_id, trading_pair, SUM(trade_amount) AS total_volume
-    FROM recent_trades GROUP BY user_id, trading_pair
-),
-ranked AS (
-    SELECT *, DENSE_RANK() OVER (PARTITION BY trading_pair ORDER BY total_volume DESC) AS rnk
-    FROM pair_volumes
-)
-SELECT * FROM ranked WHERE rnk <= 3;
--- 30M/800M = 96% I/O reduction
-
--- FIX 2: Use APPROXIMATE_TOP_K (Spark / Databricks) for exploration
--- For dashboards that don't need exact Top-3, approximate is 10-100× faster
-SELECT trading_pair, approx_top_k_user, approx_volume
-FROM (
-    SELECT trading_pair,
-           APPROX_TOP_K(user_id, 3, 1000) AS top_users  -- Databricks built-in
-    FROM trades
-    GROUP BY trading_pair
-);
-
--- FIX 3: Pre-materialise the leaderboard as a scheduled table
--- Leaderboards are read frequently, written infrequently → ideal for materialisation
-CREATE OR REPLACE TABLE top3_traders_per_pair AS
-WITH ...  -- full computation
--- Schedule: run daily at midnight; serve queries from this table
--- Query time: simple SELECT with no window function
-```
 
 #### System-Level Fix
 
-```sql
--- Redshift: top-N leaderboard table — optimise for frequent reads
-CREATE TABLE top3_traders_per_pair (
-    trading_pair  VARCHAR(20),
-    rank_position SMALLINT,
-    user_id       BIGINT,
-    total_volume  DECIMAL(20,2)
-)
-DISTSTYLE ALL          -- small table: broadcast to all nodes for fast joins
-COMPOUND SORTKEY (trading_pair, rank_position);  -- queries always filter by trading_pair first
-
--- BigQuery: materialised view for leaderboard
-CREATE MATERIALIZED VIEW mv_top3_traders_per_pair
-CLUSTER BY trading_pair
-AS
-WITH ranked AS (
-    SELECT user_id, trading_pair, SUM(trade_amount) AS vol,
-        DENSE_RANK() OVER (PARTITION BY trading_pair ORDER BY SUM(trade_amount) DESC) AS rnk
-    FROM trades WHERE txn_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
-    GROUP BY user_id, trading_pair
-)
-SELECT * FROM ranked WHERE rnk <= 3;
--- Refreshed automatically when trades table changes (within a few minutes)
-```
-
-```sql
 
 ---
 
 ---
+
 

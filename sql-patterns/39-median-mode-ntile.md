@@ -14,8 +14,6 @@ Find the middle value (median) or most frequent value (mode) of a distribution.
 
 ### Boilerplate — Mode
 
-```
-
 ```sql
 -- Most common trading pair overall
 SELECT trading_pair, COUNT(*) AS freq
@@ -121,10 +119,6 @@ max_freq AS (
 SELECT credit_score AS mode_value, freq
 FROM freq WHERE freq = (SELECT max_freq FROM max_freq)
 ORDER BY credit_score;  -- returns ALL tied modes
-```
-
-```sql
-
 ---
 
 ### At Scale
@@ -156,8 +150,6 @@ Divide rows into N equal-sized buckets for analysis, percentile banding, or A/B 
 - **Risk:** Assign merchants into risk deciles by chargeback rate (top decile = high risk — enhanced monitoring); segment loan applicants into credit score buckets for pricing
 
 ### Boilerplate
-
-```
 
 ```sql
 SELECT
@@ -262,4 +254,5 @@ CROSS JOIN (SELECT MIN(loan_amount) AS min_amount, MAX(loan_amount) AS max_amoun
 *No specific at-scale documentation for this pattern.*
 
 ---
+
 
