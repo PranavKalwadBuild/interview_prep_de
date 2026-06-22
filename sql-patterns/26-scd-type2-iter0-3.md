@@ -95,48 +95,44 @@ SELECT * FROM dim_customers WHERE valid_to IS NULL;
 ### Iteration 0 — Base Two-Phase SCD2 (Naive starting point)
 
 ```sql
--- ============================================================
--- PHASE 1: Expire rows that have changed
--- ============================================================
+-- UPDATE: Expire changed rows
 UPDATE dim_customers
 SET
-    valid_to   = CURRENT_TIMESTAMP,
+    valid_to = CURRENT_TIMESTAMP,
     is_current = FALSE
 WHERE is_current = TRUE
   AND customer_id IN (
       SELECT s.customer_id
       FROM stg_customers s
-      JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = TRUE
-      WHERE s.name  <> d.name
-         OR s.email <> d.email
-         OR s.city  <> d.city
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
   );
 
--- ============================================================
--- PHASE 2: Insert new versions (changed records + brand new customers)
--- ============================================================
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-
--- Branch A: Brand new customers (never seen before)
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       CURRENT_TIMESTAMP, NULL, TRUE, CURRENT_TIMESTAMP
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
 FROM stg_customers s
 WHERE NOT EXISTS (
-    SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id
-)
-
-UNION ALL
-
--- Branch B: Changed customers (current row was just expired by Phase 1)
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       CURRENT_TIMESTAMP, NULL, TRUE, CURRENT_TIMESTAMP
-FROM stg_customers s
-JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = FALSE
-                    AND d.valid_to = CURRENT_TIMESTAMP  -- just expired this run
-WHERE s.name  <> d.name
-   OR s.email <> d.email
-   OR s.city  <> d.city;
+    SELECT 1 FROM dim_customers d
+    WHERE d.customer_id = s.customer_id
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
+);
 ```
 
 **What this breaks under:**
@@ -157,47 +153,43 @@ Each iteration below fixes one of these.
 **Fix:** Separate the change-detection from the expiry-detection. Use a staging CTE that explicitly identifies changed rows, then Phase 2 reads from source directly with a "no current active matching row" guard.
 
 ```sql
--- PHASE 1: Expire only rows that have actually changed
+-- UPDATE: Expire changed rows
 UPDATE dim_customers
 SET
-    valid_to   = CURRENT_TIMESTAMP,
+    valid_to = CURRENT_TIMESTAMP,
     is_current = FALSE
 WHERE is_current = TRUE
   AND customer_id IN (
       SELECT s.customer_id
       FROM stg_customers s
-      JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = TRUE
-      WHERE s.name  <> d.name
-         OR s.email <> d.email
-         OR s.city  <> d.city
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
   );
 
--- PHASE 2: Insert new version for any customer that has no matching active row
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-
--- Branch A: Brand new customers
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       CURRENT_TIMESTAMP, NULL, TRUE, CURRENT_TIMESTAMP
-FROM stg_customers s
-WHERE NOT EXISTS (SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id)
-
-UNION ALL
-
--- Branch B: Changed customers — no active row matching source values
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       CURRENT_TIMESTAMP, NULL, TRUE, CURRENT_TIMESTAMP
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
 FROM stg_customers s
 WHERE NOT EXISTS (
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  = s.name    -- if an active row already matches → no insert needed
+      AND d.is_current = TRUE
+      AND d.name = s.name
       AND d.email = s.email
-      AND d.city  = s.city
-)
-AND EXISTS (
-    SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id  -- must exist in dim (not brand new)
+      AND d.city = s.city
+      AND d.phone = s.phone
 );
 ```
 
@@ -217,44 +209,44 @@ AND EXISTS (
 **Fix:** Replace every `=` and `<>` used for change detection with `IS DISTINCT FROM` / `IS NOT DISTINCT FROM`:
 
 ```sql
--- PHASE 1: NULL-safe expiry
+-- UPDATE: Expire changed rows
 UPDATE dim_customers
-SET valid_to = CURRENT_TIMESTAMP, is_current = FALSE
+SET
+    valid_to = CURRENT_TIMESTAMP,
+    is_current = FALSE
 WHERE is_current = TRUE
   AND customer_id IN (
       SELECT s.customer_id
       FROM stg_customers s
-      JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = TRUE
-      WHERE s.name  IS DISTINCT FROM d.name    -- ← NULL-safe: NULL→'Alice' fires, NULL→NULL skips
-         OR s.email IS DISTINCT FROM d.email
-         OR s.city  IS DISTINCT FROM d.city
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
   );
 
--- PHASE 2: NULL-safe no-duplicate guard
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-
--- Branch A: Brand new customers
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       CURRENT_TIMESTAMP, NULL, TRUE, CURRENT_TIMESTAMP
-FROM stg_customers s
-WHERE NOT EXISTS (SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id)
-
-UNION ALL
-
--- Branch B: Changed customers
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       CURRENT_TIMESTAMP, NULL, TRUE, CURRENT_TIMESTAMP
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
 FROM stg_customers s
 WHERE NOT EXISTS (
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  IS NOT DISTINCT FROM s.name   -- ← NULL-safe equality
-      AND d.email IS NOT DISTINCT FROM s.email
-      AND d.city  IS NOT DISTINCT FROM s.city
-)
-AND EXISTS (SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id);
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
+);
 ```
 
 > **IS DISTINCT FROM truth table:**
@@ -274,50 +266,43 @@ AND EXISTS (SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id);
 **Fix:** Add a timestamp guard in Phase 1. Only expire if the source record is **newer** than the current row:
 
 ```sql
--- PHASE 1: Only expire if source is newer than the currently active row
+-- UPDATE: Expire changed rows
 UPDATE dim_customers
-SET valid_to = CURRENT_TIMESTAMP, is_current = FALSE
+SET
+    valid_to = CURRENT_TIMESTAMP,
+    is_current = FALSE
 WHERE is_current = TRUE
   AND customer_id IN (
       SELECT s.customer_id
       FROM stg_customers s
-      JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = TRUE
-      WHERE s.updated_at > d.valid_from             -- ← reject late-arriving records
-        AND (
-          s.name  IS DISTINCT FROM d.name
-          OR s.email IS DISTINCT FROM d.email
-          OR s.city  IS DISTINCT FROM d.city
-        )
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
   );
 
--- PHASE 2: Only insert a new version if source is newer than the latest known version
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-
--- Branch A: Brand new customers
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       s.updated_at, NULL, TRUE, CURRENT_TIMESTAMP
-FROM stg_customers s
-WHERE NOT EXISTS (SELECT 1 FROM dim_customers d WHERE d.customer_id = s.customer_id)
-
-UNION ALL
-
--- Branch B: Changed customers — source is newer, and no matching active row exists
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       s.updated_at, NULL, TRUE, CURRENT_TIMESTAMP   -- ← use s.updated_at as valid_from, not CURRENT_TIMESTAMP
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
 FROM stg_customers s
 WHERE NOT EXISTS (
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  IS NOT DISTINCT FROM s.name
-      AND d.email IS NOT DISTINCT FROM s.email
-      AND d.city  IS NOT DISTINCT FROM s.city
-)
-AND EXISTS (
-    SELECT 1 FROM dim_customers d
-    WHERE d.customer_id = s.customer_id
-      AND s.updated_at > d.valid_from   -- ← source must be newer than the current row we just expired
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
 );
 ```
 

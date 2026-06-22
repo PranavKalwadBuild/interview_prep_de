@@ -22,58 +22,42 @@ INSERT rows → sk_customer IS NULL     → NOT MATCHED → INSERT (open new row
 #### The MERGE code
 
 ```sql
-MERGE INTO dim_customers AS target
-USING (
-    -- EXPIRE rows: existing current rows that have changed
-    SELECT
-        d.sk_customer,
-        s.customer_id,
-        s.name,
-        s.email,
-        s.city,
-        s.phone,
-        d.valid_from,
-        'EXPIRE' AS action
-    FROM stg_customers s
-    JOIN dim_customers d
-        ON  s.customer_id = d.customer_id
-        AND d.is_current  = TRUE
-    WHERE s.email IS DISTINCT FROM d.email
-       OR s.city  IS DISTINCT FROM d.city
-       OR s.phone IS DISTINCT FROM d.phone
-       OR s.name  IS DISTINCT FROM d.name
+UPDATE dim_customers
+SET
+    valid_to = CURRENT_TIMESTAMP,
+    is_current = FALSE
+WHERE is_current = TRUE
+  AND customer_id IN (
+      SELECT s.customer_id
+      FROM stg_customers s
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
+  );
 
-    UNION ALL
-
-    -- INSERT rows: new versions for changed records + brand-new customers
-    SELECT
-        NULL          AS sk_customer,   -- no match → WHEN NOT MATCHED → INSERT
-        s.customer_id,
-        s.name,
-        s.email,
-        s.city,
-        s.phone,
-        CURRENT_TIMESTAMP AS valid_from,
-        'INSERT'      AS action
-    FROM stg_customers s
-    LEFT JOIN dim_customers d
-        ON  s.customer_id = d.customer_id
-        AND d.is_current  = TRUE
-    WHERE d.customer_id IS NULL          -- brand-new customer
-       OR s.email IS DISTINCT FROM d.email
-       OR s.city  IS DISTINCT FROM d.city
-       OR s.phone IS DISTINCT FROM d.phone
-       OR s.name  IS DISTINCT FROM d.name
-) AS source
-    ON target.sk_customer = source.sk_customer   -- only EXPIRE rows have a real sk
-WHEN MATCHED THEN                                -- EXPIRE: close the old row
-    UPDATE SET
-        valid_to   = CURRENT_TIMESTAMP,
-        is_current = FALSE
-WHEN NOT MATCHED THEN                            -- INSERT: open the new version
-    INSERT (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-    VALUES (source.customer_id, source.name, source.email, source.city, source.phone,
-            source.valid_from, NULL, TRUE, CURRENT_TIMESTAMP);
+INSERT INTO dim_customers
+    (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
+FROM stg_customers s
+WHERE NOT EXISTS (
+    SELECT 1 FROM dim_customers d
+    WHERE d.customer_id = s.customer_id
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
+);
 ```
 
 #### When to use this vs the two-phase approach

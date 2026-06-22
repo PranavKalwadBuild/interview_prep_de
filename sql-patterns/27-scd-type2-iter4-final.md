@@ -8,53 +8,44 @@
 **Fix:** Deduplicate the source in a CTE, then use it in both phases:
 
 ```sql
--- Deduplicated source CTE — use this in both phases
-WITH src AS (
-    SELECT *
-    FROM (
-        SELECT *,
-               ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at DESC) AS rn
-        FROM stg_customers
-    ) deduped
-    WHERE rn = 1
-)
-
--- PHASE 1: Expire changed rows (source is deduped)
+-- UPDATE: Expire changed rows
 UPDATE dim_customers
-SET valid_to = CURRENT_TIMESTAMP, is_current = FALSE
+SET
+    valid_to = CURRENT_TIMESTAMP,
+    is_current = FALSE
 WHERE is_current = TRUE
   AND customer_id IN (
       SELECT s.customer_id
-      FROM src s
-      JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = TRUE
-      WHERE s.updated_at > d.valid_from
-        AND (
-          s.name  IS DISTINCT FROM d.name
-          OR s.email IS DISTINCT FROM d.email
-          OR s.city  IS DISTINCT FROM d.city
-        )
+      FROM stg_customers s
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
   );
 
--- PHASE 2: Insert new versions
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-
-SELECT s.customer_id, s.name, s.email, s.city, s.phone,
-       s.updated_at, NULL, TRUE, CURRENT_TIMESTAMP
-FROM src s
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
+FROM stg_customers s
 WHERE NOT EXISTS (
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  IS NOT DISTINCT FROM s.name
-      AND d.email IS NOT DISTINCT FROM s.email
-      AND d.city  IS NOT DISTINCT FROM s.city
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
 );
--- Note: this single INSERT covers both brand new customers AND changed customers.
--- Brand new: NOT EXISTS returns TRUE (no active row at all) → insert fires.
--- Changed: NOT EXISTS returns TRUE (active row was just expired) → insert fires.
--- Unchanged: NOT EXISTS returns FALSE (active row matches source) → insert skipped.
--- Same batch re-run: NOT EXISTS returns FALSE (new active row already inserted) → insert skipped.
 ```
 
 **Now:** Re-running on the same batch is fully safe.
@@ -136,29 +127,43 @@ UPDATE dim_customers SET phone = 'N/A' WHERE phone IS NULL;
 
 ```sql
 -- In Phase 1, add phone to change detection:
-WHERE s.updated_at > d.valid_from
-  AND (
-    s.name  IS DISTINCT FROM d.name
-    OR s.email IS DISTINCT FROM d.email
-    OR s.city  IS DISTINCT FROM d.city
-    OR s.phone IS DISTINCT FROM d.phone    -- ← new column: a phone change now creates a new SCD2 version
-  )
+-- UPDATE: Expire changed rows
+UPDATE dim_customers
+SET
+    valid_to = CURRENT_TIMESTAMP,
+    is_current = FALSE
+WHERE is_current = TRUE
+  AND customer_id IN (
+      SELECT s.customer_id
+      FROM stg_customers s
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
+  );
 
--- In Phase 2 INSERT:
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-SELECT s.customer_id, s.name, s.email, s.city,
-       COALESCE(s.phone, 'N/A'),    -- ← default when source sends NULL for the new column
-       s.updated_at, NULL, TRUE, CURRENT_TIMESTAMP
-FROM src s
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
+FROM stg_customers s
 WHERE NOT EXISTS (
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  IS NOT DISTINCT FROM s.name
-      AND d.email IS NOT DISTINCT FROM s.email
-      AND d.city  IS NOT DISTINCT FROM s.city
-      AND d.phone IS NOT DISTINCT FROM s.phone   -- ← include in not-changed guard
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
 );
 ```
 
@@ -191,20 +196,43 @@ Because the condition requires `is_current = TRUE` AND a value match, a customer
 **Make it explicit with a comment and add reactivation to Phase 1's scope check:**
 
 ```sql
--- PHASE 2: Covers three cases — read the comments
+-- UPDATE: Expire changed rows
+UPDATE dim_customers
+SET
+    valid_to = CURRENT_TIMESTAMP,
+    is_current = FALSE
+WHERE is_current = TRUE
+  AND customer_id IN (
+      SELECT s.customer_id
+      FROM stg_customers s
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
+  );
+
+-- INSERT: Insert new versions for changed and new customers
 INSERT INTO dim_customers
     (customer_id, name, email, city, phone, valid_from, valid_to, is_current, created_at)
-SELECT s.customer_id, s.name, s.email, s.city, COALESCE(s.phone, 'N/A'),
-       s.updated_at, NULL, TRUE, CURRENT_TIMESTAMP
-FROM src s
+SELECT
+    s.customer_id,
+    s.name,
+    s.email,
+    s.city,
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
+FROM stg_customers s
 WHERE NOT EXISTS (
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  IS NOT DISTINCT FROM s.name
-      AND d.email IS NOT DISTINCT FROM s.email
-      AND d.city  IS NOT DISTINCT FROM s.city
-      AND d.phone IS NOT DISTINCT FROM s.phone
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
 );
 -- Case 1 — brand new customer (no rows in dim at all):
 --   NOT EXISTS → TRUE (no row of any kind) → INSERT fires ✓
@@ -239,20 +267,16 @@ WITH src AS (
 -- ============================================================
 UPDATE dim_customers
 SET
-    valid_to   = CURRENT_TIMESTAMP,
+    valid_to = CURRENT_TIMESTAMP,
     is_current = FALSE
 WHERE is_current = TRUE
   AND customer_id IN (
       SELECT s.customer_id
-      FROM src s
-      JOIN dim_customers d ON s.customer_id = d.customer_id AND d.is_current = TRUE
-      WHERE s.updated_at > d.valid_from                    -- Iteration 3: reject late arrivals
-        AND (
-            s.name  IS DISTINCT FROM d.name                -- Iteration 2: NULL-safe change detection
-            OR s.email IS DISTINCT FROM d.email
-            OR s.city  IS DISTINCT FROM d.city
-            OR s.phone IS DISTINCT FROM d.phone            -- Iteration 6: new column tracked
-        )
+      FROM stg_customers s
+      WHERE s.name  <> dim_customers.name
+         OR s.email <> dim_customers.email
+         OR s.city  <> dim_customers.city
+         OR s.phone <> dim_customers.phone
   );
 
 -- Phase 1-B: Close rows for hard-deleted customers (absent from source)
@@ -272,21 +296,20 @@ SELECT
     s.name,
     s.email,
     s.city,
-    COALESCE(s.phone, 'N/A'),   -- Iteration 6: schema evolution default
-    s.updated_at,               -- Iteration 3: business timestamp as valid_from
-    NULL,
-    TRUE,
-    CURRENT_TIMESTAMP
-FROM src s
+    s.phone,
+    CURRENT_TIMESTAMP AS valid_from,
+    NULL AS valid_to,
+    TRUE AS is_current,
+    CURRENT_TIMESTAMP AS created_at
+FROM stg_customers s
 WHERE NOT EXISTS (
-    -- Iteration 1+2+4+7: idempotent, NULL-safe, handles reappearing customers
     SELECT 1 FROM dim_customers d
     WHERE d.customer_id = s.customer_id
-      AND d.is_current  = TRUE
-      AND d.name  IS NOT DISTINCT FROM s.name
-      AND d.email IS NOT DISTINCT FROM s.email
-      AND d.city  IS NOT DISTINCT FROM s.city
-      AND d.phone IS NOT DISTINCT FROM s.phone
+      AND d.is_current = TRUE
+      AND d.name = s.name
+      AND d.email = s.email
+      AND d.city = s.city
+      AND d.phone = s.phone
 );
 ---
 
