@@ -678,4 +678,135 @@ These decorators keep the core pipeline logic pure and allow you to swap concern
 
 ---  
 
+## 10. Testing with Pytest
+
+Since the pipeline is built from small, composable generator functions, each piece can be unit‑tested in isolation with pytest. Below are examples showing how to test the core primitives and a full end‑to‑end run using temporary files.
+
+### 10.1 Testing Generator Utilities
+
+```python
+# test_pipeline_utils.py
+import pytest
+from your_pipeline_module import (
+    csv_reader,
+    jsonl_reader,
+    map_gen,
+    filter_gen,
+    combine_and_spill,
+    csv_writer,
+    jsonl_writer,
+)
+
+def test_map_gen():
+    source = [1, 2, 3, 4]
+    doubled = list(map_gen(lambda x: x * 2, source))
+    assert doubled == [2, 4, 6, 8]
+
+def test_filter_gen():
+    source = [1, 2, 3, 4, 5]
+    evens = list(filter_gen(lambda x: x % 2 == 0, source))
+    assert evens == [2, 4]
+
+def test_csv_reader(tmp_path):
+    # create a temporary CSV file
+    p = tmp_path / "sample.csv"
+    p.write_text("name,age\nAlice,30\nBob,25\n")
+    records = list(csv_reader(str(p)))
+    assert records == [
+        {"name": "Alice", "age": "30"},
+        {"name": "Bob", "age": "25"},
+    ]
+
+def test_jsonl_reader(tmp_path):
+    p = tmp_path / "sample.jsonl"
+    p.write_text('{"id": 1}\n{"id": 2}\n')
+    records = list(jsonl_reader(str(p)))
+    assert records == [{"id": 1}, {"id": 2}]
+```
+
+### 10.2 Testing the Combiner with Spill
+
+```python
+def test_combine_and_spill_small(tmp_path):
+    data = [("apple", 2), ("banana", 3), ("apple", 5), ("banana", 7)]
+    # Use a low spill threshold to force spilling
+    combined = list(combine_and_spill(
+        iter(data),
+        combine=lambda a, b: a + b,
+        max_memory_items=2,  # spill after 2 items
+        temp_dir=str(tmp_path / "spill")
+    ))
+    # Order may vary because we dump dict items; sort for deterministic assert
+    combined_sorted = sorted(combined, key=lambda x: x[0])
+    assert combined_sorted == [("apple", 7), ("banana", 10)]
+```
+
+### 10.3 Testing a Full Pipeline End‑to‑End
+
+```python
+def test_end_to_end_pipeline(tmp_path):
+    # --- Input CSV ---
+    input_csv = tmp_path / "input.csv"
+    input_csv.write_text(
+        "order_id,timestamp,region,product_id,quantity,unit_price,status\n"
+        "1,2024-01-01T10:00:00,North, p1,2,10.0,OK\n"
+        "2,2024-01-01T11:00:00,South, p2,1,20.0,CANCELLED\n"
+        "3,2024-01-02T09:00:00,North, p1,3,10.0,OK\n"
+    )
+    # --- Expected output after filtering out CANCELLED and aggregating per region/day ---
+    expected = [
+        {"region": "North", "date": "2024-01-01", "total_amount": 20.0},
+        {"region": "North", "date": "2024-01-02", "total_amount": 30.0},
+    ]
+
+    # Run the pipeline (reuse the run_pipeline function from the module)
+    output_csv = tmp_path / "output.csv"
+    from your_pipeline_module import run_pipeline
+    run_pipeline(str(input_csv), str(output_csv))
+
+    # Read back the output
+    import csv
+    with open(output_csv, newline='') as f:
+        reader = csv.DictReader(f)
+        actual = [row for row in reader]
+        # Convert total_amount to float for comparison
+        for row in actual:
+            row["total_amount"] = float(row["total_amount"])
+
+    assert actual == expected
+```
+
+### 10.4 Using Fixtures for Complex Setup
+
+```python
+@pytest.fixture
+def sample_sales_data(tmp_path):
+    data = (
+        "order_id,timestamp,region,product_id,quantity,unit_price,status\n"
+        "1,2024-01-01T10:00:00,East, pA,1,100.0,OK\n"
+        "2,2024-01-01T10:05:00,East, pB,2,50.0,OK\n"
+        "3,2024-01-01T10:10:00,West, pA,1,100.0,CANCELLED\n"
+    )
+    p = tmp_path / "sales.csv"
+    p.write_text(data)
+    return str(p)
+
+def test_pipeline_with_fixture(sample_sales_data, tmp_path):
+    out = tmp_path / "out.csv"
+    from your_pipeline_module import run_pipeline
+    run_pipeline(sample_sales_data, str(out))
+    # assertions...
+```
+
+### 10.5 Best Practices for Testing Pipelines
+
+- **Isolate units**: Test each generator (`map_gen`, `filter_gen`, `csv_reader`) separately.
+- **Control spill behavior**: When testing `combine_and_spill`, set a low `max_memory_items` to force spilling and verify that results are still correct.
+- **Use temporary directories**: `tmp_path` fixture ensures clean state for file‑based tests.
+- **Avoid external calls**: Mock any HTTP requests or third‑party services with `responses` or `unittest.mock`.
+- **Check exact output**: Because generators are lazy, materialize with `list()` to assert contents.
+- **Test edge cases**: empty files, malformed lines, missing columns, very large numbers that trigger spill.
+
+You can also reuse the testing patterns demonstrated in @python-patterns/14-testing-with-pytest.md for more advanced mocking, parametrization, and fixture usage.
+
 *End of document.*  
