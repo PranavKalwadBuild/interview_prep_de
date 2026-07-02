@@ -1,3 +1,5 @@
+<!-- nosql-patterns: NoSQL Key Systems — DynamoDB, MongoDB, Cassandra (DE Perspective) -->
+
 # NoSQL Key Systems — DynamoDB, MongoDB, Cassandra (DE Perspective)
 
 ## DynamoDB

@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: NULL Deep Dive — Percentiles, NTILE, Cohort Analysis, End-to-End Example, Quick Reference Card -->
-<!-- Source: sql_patterns.md lines 12066–12329 -->
+<!-- sql-patterns: NULL Deep Dive — Percentiles, NTILE, Cohort Analysis, End-to-End Example, Quick Reference Card -->
 
-### 32-P. NULL in Percentiles and Histograms
+# 32-P. NULL in Percentiles and Histograms
 
 ```sql
 -- PERCENTILE_CONT / PERCENTILE_DISC ignore NULLs (like other aggregates)
@@ -82,7 +81,7 @@ SELECT
 FROM loan_applications;
 ---
 
-### 32-R. NULL in Cohort Analysis
+# 32-R. NULL in Cohort Analysis
 
 ```sql
 -- User cohort = first transaction month

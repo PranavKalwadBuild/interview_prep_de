@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors — Dimensional Model Traps -->
+
 <!-- Part of Data_modelling: Silent Errors — Dimensional Model Traps -->
 
 # Silent Errors — Dimensional Model Traps

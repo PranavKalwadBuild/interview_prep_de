@@ -1,3 +1,5 @@
+<!-- python-patterns: Python Functions (User-Defined) -->
+
 # Python Functions (User-Defined)
 
 ## Why Functions Matter

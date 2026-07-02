@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Anti-Join Pattern (EXISTS, NOT IN, LEFT JOIN IS NULL) -->
-<!-- Source: sql_patterns.md lines 9376–9572 -->
+<!-- sql-patterns: Anti-Join Pattern (EXISTS, NOT IN, LEFT JOIN IS NULL) -->
 
-## 22. Anti-Join Pattern
+# Anti-Join Pattern
 
-### What it solves
+## What it solves
 
 Find rows in table A that have NO match in table B — the opposite of a regular join.
 
-### Keywords to spot
+## Keywords to spot
 
 > "never", "not in", "no corresponding", "missing",
 > "users who have NOT done X", "records without a match",
@@ -16,7 +15,7 @@ Find rows in table A that have NO match in table B — the opposite of a regular
 > "inactive", "churned", "no activity in", "never completed",
 > "find records in A that don't have a match in B"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Users who registered but never made a deposit (activation gap — trigger onboarding nudge); trades that were submitted but never settled (settlement failure detection); accounts that received a credit but never spent it
 - **E-commerce:** Products with no orders in 30 days (slow-moving inventory); customers with no activity in 90 days (lapsed customer reactivation campaign); sellers with no listings (dormant seller accounts)
@@ -24,7 +23,7 @@ Find rows in table A that have NO match in table B — the opposite of a regular
 - **Data Engineering:** Source records with no corresponding target record after ETL (reconciliation gap — rows dropped in pipeline); dimension table entries with no fact table rows (orphaned dimension members)
 - **Compliance:** Users with no completed KYC but who have made transactions (regulatory risk flag); employees with system access but no valid employment record (access governance)
 
-### Three equivalent approaches
+## Three equivalent approaches
 
 ```sql
 -- Method 1: LEFT JOIN + IS NULL (best performance in most databases)
@@ -47,15 +46,15 @@ WHERE user_id NOT IN (SELECT user_id FROM trades);
 -- ⚠️ If trades.user_id has ANY NULL, this returns zero rows
 ```
 
-### Gotchas
+## Gotchas
 
 - **NEVER use `NOT IN` on a subquery that can return NULLs** — `NULL IN (1, 2, NULL)` returns NULL (not TRUE), so `NOT IN` returns no rows
 - `LEFT JOIN IS NULL` and `NOT EXISTS` are safe and generally equivalent in performance
 - Always default to `NOT EXISTS` or `LEFT JOIN IS NULL` in interviews
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 22-A: LEFT JOIN IS NULL with duplicates on the right side
+### Edge 22-A: LEFT JOIN IS NULL with duplicates on the right side
 
 **Problem:**
 
@@ -89,7 +88,7 @@ WHERE d.borrower_id IS NULL;
 SELECT DISTINCT b.borrower_id FROM borrowers b LEFT JOIN defaults d ... WHERE d.borrower_id IS NULL
 ```
 
-#### Edge 22-B: EXISTS vs NOT EXISTS with correlated subquery scope
+### Edge 22-B: EXISTS vs NOT EXISTS with correlated subquery scope
 
 **Problem:**
 

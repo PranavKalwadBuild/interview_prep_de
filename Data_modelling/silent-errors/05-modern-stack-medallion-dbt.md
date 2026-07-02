@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors — Modern Stack: Medallion Architecture and dbt -->
+
 <!-- Part of Data_modelling: Silent Errors — Modern Stack: Medallion and dbt -->
 
 # Silent Errors — Modern Stack: Medallion Architecture and dbt

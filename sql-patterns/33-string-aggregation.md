@@ -1,25 +1,25 @@
-<!-- Part of sql-patterns: String Aggregation -->
+<!-- sql-patterns: String Aggregation -->
 
-## 19. String Aggregation
+# String Aggregation
 
-### What it solves
+## What it solves
 
 Concatenate multiple row values into a single delimited string within a group.
 
-### Keywords to spot
+## Keywords to spot
 
 > "list of", "comma-separated", "all values in a group as one string",
 > "concatenate per group", "combine into one", "collect all",
 > "tags", "labels", "pipe-delimited", "audit list"
 
-### Business Context
+## Business Context
 
 - **Fintech:** List trading pairs per user; concatenate KYC document types into an audit field.
 - **E-commerce:** Show all product tags per SKU; list order IDs per customer for support.
 - **SaaS:** Summarize roles, enabled features, or monthly usage categories per account.
 - **Data Quality:** Aggregate failed validation rule names per record into one diagnostic field.
 
-### ANSI-first pattern
+## ANSI-first pattern
 
 Modern SQL defines `LISTAGG` for ordered string aggregation.
 
@@ -47,7 +47,7 @@ FROM distinct_pairs
 GROUP BY user_id;
 ```
 
-### PostgreSQL fallback
+## PostgreSQL fallback
 
 ```sql
 SELECT
@@ -60,7 +60,7 @@ FROM (
 GROUP BY user_id;
 ```
 
-### MySQL fallback
+## MySQL fallback
 
 ```sql
 SELECT
@@ -73,16 +73,16 @@ FROM (
 GROUP BY user_id;
 ```
 
-### Gotchas
+## Gotchas
 
 - String aggregation is not a relational shape. It is best for display, exports, and compact diagnostics, not for downstream joins.
 - Ordering is not optional. Without `ORDER BY`, the same group can produce a different string order after plan changes.
 - Duplicate handling belongs before aggregation. `DISTINCT` inside the aggregate is not portable enough to be the default teaching pattern.
 - `NULL` input values are usually ignored. If missing values must appear, convert them first with `COALESCE`.
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 19-A: Aggregated string becomes too large
+### Edge 19-A: Aggregated string becomes too large
 
 **Problem:**
 
@@ -126,7 +126,7 @@ GROUP BY merchant_id;
 SET SESSION group_concat_max_len = 1000000;
 ```
 
-#### Edge 19-B: Delimiter collisions
+### Edge 19-B: Delimiter collisions
 
 **Problem:** If values contain the delimiter, the aggregated string is ambiguous.
 
@@ -137,7 +137,7 @@ SET SESSION group_concat_max_len = 1000000;
 
 **Fix:** Use a delimiter that cannot occur in the source, escape values before aggregation, or do not serialize the values into a string. For analytics, keep one row per value.
 
-#### Edge 19-C: NULL values disappear
+### Edge 19-C: NULL values disappear
 
 ```sql
 SELECT
@@ -159,7 +159,7 @@ FROM order_promotions
 GROUP BY order_id;
 ```
 
-### At Scale
+## At Scale
 
 String aggregation can become a memory hotspot because every value in a group must be collected before one output row is emitted.
 

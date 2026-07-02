@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Financial Regulatory Trade Reporting Ingestion -->
+
 # Financial Regulatory Trade Reporting Ingestion
 
 > **Domain:** Financial Services — Regulatory Compliance

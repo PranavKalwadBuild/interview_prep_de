@@ -1,20 +1,19 @@
-<!-- Part of sql-patterns: Top-N per Group -->
-<!-- Source: sql_patterns.md lines 4677–4931 -->
+<!-- sql-patterns: Top-N per Group -->
 
-## 8. Top-N per Group
+# Top-N per Group
 
-### What it solves
+## What it solves
 
 Select the top N rows within each group (category, user, date, etc.).
 
-### Keywords to spot
+## Keywords to spot
 
 > "top 3 per", "best performing per category", "highest N per",
 > "most recent N per user", "for each X find the top Y",
 > "top performers in each", "leading N by", "worst N per",
 > "bottom N", "podium for each", "top contributors per", "highest scoring per group"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Top 3 traded pairs per user per month (personalised dashboard); top 5 users by trading volume per day (leaderboard); worst 3 performing assets per portfolio per quarter
 - **E-commerce:** Top 3 best-selling products per category (homepage merchandising); top 5 customers by revenue per region (key account management); bottom 5 rated sellers per category
@@ -23,7 +22,7 @@ Select the top N rows within each group (category, user, date, etc.).
 - **Logistics:** Top 3 carriers by on-time delivery rate per origin city; worst 5 routes by average delay per quarter
 - **HR:** Top 3 highest-earning employees per department (pay equity audit); top 5 employees by tenure per job grade
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Pattern: Top-3 trading pairs per user by volume
@@ -47,14 +46,14 @@ WHERE rnk <= 3;
 -- Must wrap in a CTE or subquery first
 ```
 
-### Gotchas
+## Gotchas
 
 - You cannot filter on a window function alias in the same SELECT — must wrap in a subquery/CTE
 - Use `DENSE_RANK` if ties should share a rank. Use `ROW_NUMBER` if you want exactly N rows.
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 8-A: Group has fewer than N rows
+### Edge 8-A: Group has fewer than N rows
 
 **Problem:**
 
@@ -106,7 +105,7 @@ SELECT * FROM ranked WHERE rn <= 5;
 -- simply omit the pre-filter — the original query is already correct.
 ```
 
-#### Edge 8-B: All rows in a group are tied — ROW_NUMBER vs DENSE_RANK give very different results
+### Edge 8-B: All rows in a group are tied — ROW_NUMBER vs DENSE_RANK give very different results
 
 **Problem:**
 
@@ -156,9 +155,9 @@ SELECT * FROM ranked WHERE rnk <= 3;  -- may return more than 3 rows on ties
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 `DENSE_RANK() OVER (PARTITION BY trading_pair ORDER BY SUM(trade_amount) DESC)`:
 
@@ -168,7 +167,7 @@ SELECT * FROM ranked WHERE rnk <= 3;  -- may return more than 3 rows on ties
 
 If there are 500 trading pairs and each has 10M unique users → 5B intermediate rows from the GROUP BY.
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 

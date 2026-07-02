@@ -1,6 +1,8 @@
-## 5. SaaS / Product Analytics
+<!-- data-modelling-patterns: SaaS / Product Analytics -->
 
-### When to Use This Design
+# SaaS / Product Analytics
+
+## When to Use This Design
 
 SaaS analytics is event-first: the raw material is a stream of user actions. The business questions:
 
@@ -11,9 +13,9 @@ SaaS analytics is event-first: the raw material is a stream of user actions. The
 
 The fundamental modeling tension in SaaS analytics: the raw event stream is the source of truth, but answering funnel, session, and cohort questions from raw events requires expensive aggregations. The model must pre-compute enough to make standard questions fast without discarding the raw grain that enables ad-hoc analysis.
 
-### The Schema
+## The Schema
 
-#### Event Stream (Segment-Style)
+### Event Stream (Segment-Style)
 
 Segment's track/identify/page model is the de facto standard. The warehouse representation:
 
@@ -73,7 +75,7 @@ PARTITION BY DATE(received_at)
 CLUSTER BY (tenant_id, user_id);
 ```
 
-#### User Identity Resolution
+### User Identity Resolution
 
 The hardest problem in product analytics: a user starts as `anonymous_id = anon_abc123`, creates an account, and becomes `user_id = user_456`. Their pre-signup events are associated with the anonymous ID. Post-signup events have both IDs. How do you stitch the journey?
 
@@ -96,7 +98,7 @@ CLUSTER BY (tenant_id, canonical_user_id, anonymous_id);
 
 The resolution query pattern — joining events to the identity map to get a canonical user journey — is expensive because it requires non-equi-join logic for pre-identification events. The practical solution is to materialize a `events_resolved` table or view that has `canonical_user_id` populated for all events, including retroactively applying the identity to pre-signup events. This materialization runs on a schedule (nightly or hourly) and is never strictly real-time.
 
-#### Session Modeling
+### Session Modeling
 
 Sessions are a computed concept. The two approaches:
 
@@ -177,7 +179,7 @@ FROM session_ids;
 
 **Query-time sessionization**: Works for ad-hoc exploration but is catastrophically slow at 100M+ events/day. The window function scan must process the entire event table. Pre-computation is the only production-viable option.
 
-#### Multi-Tenant Isolation Strategies
+### Multi-Tenant Isolation Strategies
 
 This is an architectural decision with profound data modeling implications.
 
@@ -193,7 +195,7 @@ This is an architectural decision with profound data modeling implications.
 
 **Database-per-tenant** is appropriate when tenants have dramatically different schemas (extensible platforms) or regulatory requirements mandating physical separation (government SaaS, healthcare).
 
-#### Funnel Modeling
+### Funnel Modeling
 
 Funnel analysis is the most common SaaS product analytics query. The naive approach is a correlated subquery for each funnel step — which becomes N full table scans for an N-step funnel.
 
@@ -240,13 +242,13 @@ WHERE tenant_id = 'tenant_abc'
 
 This query runs in milliseconds regardless of event volume because it scans the pre-aggregated funnel fact, not the raw events.
 
-### The Hard Problems
+## The Hard Problems
 
 **Event Volume and Sessionization at Scale**: At 500M events/day (realistic for a mid-size SaaS company), sessionizing the full event stream nightly is a 30–60 minute job. The incremental sessionization challenge: sessions can span midnight boundaries, and new events arriving for an in-progress session must update the session's end time and event count without a full recomputation. The solution is a **two-phase approach**: (1) close sessions where the last event was > 30 minutes ago; (2) accumulate active sessions in a staging table updated throughout the day.
 
 **User Merges**: When two user accounts are merged (duplicate accounts), all historical events associated with the merged account must be re-attributed to the canonical account. This retroactively invalidates any pre-computed funnel and session models that used the old user ID. The identity map table handles real-time queries, but pre-computed aggregates require a recomputation trigger on any identity merge event.
 
-### Scale Mechanics
+## Scale Mechanics
 
 | Event Volume | Sessionization | Funnel | Identity Resolution |
 |-------------|---------------|--------|-------------------|

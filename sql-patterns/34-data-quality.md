@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Data Quality Patterns -->
-<!-- Source: sql_patterns.md lines 8868–9153 -->
+<!-- sql-patterns: Data Quality Patterns -->
 
-## 20. Data Quality Patterns
+# Data Quality Patterns
 
-### What it solves
+## What it solves
 
 Detect and quantify data quality issues: nulls, duplicates, referential integrity violations, range violations, format issues.
 
-### Keywords to spot
+## Keywords to spot
 
 > "data quality", "completeness", "null check", "duplicate detection",
 > "referential integrity", "orphan records", "out-of-range",
@@ -16,7 +15,7 @@ Detect and quantify data quality issues: nulls, duplicates, referential integrit
 > "volume drop", "unexpected nulls", "cardinality check",
 > "format validation", "uniqueness constraint", "pipeline health"
 
-### Business Context
+## Business Context
 
 - **Any domain:** Null/completeness checks before loading to a warehouse or reporting layer; row count validation after each ETL step (volume anomaly = pipeline failure signal)
 - **Fintech:** Validate every trade references a valid user_id (referential integrity); flag negative amounts or future-dated transactions; detect duplicate trade_ids from exchange feed retries
@@ -25,7 +24,7 @@ Detect and quantify data quality issues: nulls, duplicates, referential integrit
 - **Healthcare:** Referential integrity — every claim must reference a valid patient and provider; check that lab result values fall within physiologically plausible ranges
 - **Compliance/Finance:** Every transaction must have a non-null counterparty; all amounts must sum to zero within a settlement batch (double-entry bookkeeping validation)
 
-### Boilerplate — Null and completeness checks
+## Boilerplate — Null and completeness checks
 
 ```sql
 -- Count nulls per column
@@ -40,7 +39,7 @@ SELECT
 FROM trades;
 ```
 
-### Boilerplate — Duplicate detection
+## Boilerplate — Duplicate detection
 
 ```sql
 -- Find duplicate trade_ids
@@ -56,7 +55,7 @@ GROUP BY trade_id, user_id, trading_pair, trade_amount, executed_at
 HAVING COUNT(*) > 1;
 ```
 
-### Boilerplate — Referential integrity
+## Boilerplate — Referential integrity
 
 ```sql
 -- Orphan trades: trade references user_id that doesn't exist in users table
@@ -66,7 +65,7 @@ LEFT JOIN users u ON t.user_id = u.user_id
 WHERE u.user_id IS NULL;
 ```
 
-### Boilerplate — Range / boundary checks
+## Boilerplate — Range / boundary checks
 
 ```sql
 SELECT
@@ -77,7 +76,7 @@ SELECT
 FROM trades;
 ```
 
-### Boilerplate — Freshness check
+## Boilerplate — Freshness check
 
 ```sql
 -- Check if the latest record is stale (no data in last 1 hour)
@@ -89,9 +88,9 @@ SELECT
 FROM raw_trades;
 ```
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 20-A: Implicit type coercion causes wrong comparisons
+### Edge 20-A: Implicit type coercion causes wrong comparisons
 
 **Problem:**
 
@@ -118,7 +117,7 @@ WHERE user_id = CAST('12345' AS INT)  -- explicit cast if needed
 -- Detection: run EXPLAIN to check if a type cast appears in the query plan
 ```
 
-#### Edge 20-B: Duplicate primary keys in dimension tables fan out fact table joins
+### Edge 20-B: Duplicate primary keys in dimension tables fan out fact table joins
 
 **Problem:**
 
@@ -172,7 +171,7 @@ JOIN dim_deduped d ON f.product_id = d.product_id AND d.rn = 1;
 -- Fail the pipeline if duplicates are detected at load time
 ```
 
-#### Edge 20-C: Decimal precision loss in FLOAT columns
+### Edge 20-C: Decimal precision loss in FLOAT columns
 
 **Problem:**
 

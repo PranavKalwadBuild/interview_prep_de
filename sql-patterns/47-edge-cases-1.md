@@ -1,15 +1,14 @@
-<!-- Part of sql-patterns: Edge Case Detection — SQL Execution Order + Core Pattern Edge Cases (Part 1) -->
-<!-- Source: sql_patterns.md lines 12330–12600 -->
+<!-- sql-patterns: Edge Case Detection — SQL Execution Order + Core Pattern Edge Cases (Part 1) -->
 
-## 33. Edge Case Detection — Where and How Queries Break
+# Edge Case Detection — Where and How Queries Break
 
 Every pattern in this guide has failure modes that are silent — no error, wrong results, reported with confidence. This section catalogs them by pattern with the exact input data that triggers the break, the engine-level explanation, and the fix. All examples use fintech/banking context (Slice-type workloads).
 
 ---
 
-### 33-0. SQL Order of Execution — Edge Cases
+## 33-0. SQL Order of Execution — Edge Cases
 
-#### Edge 0-A: Using a SELECT alias in WHERE
+### Edge 0-A: Using a SELECT alias in WHERE
 
 **Problem:**
 
@@ -35,7 +34,7 @@ WITH fees AS (SELECT *, txn_amount * 0.02 AS fee FROM transactions)
 SELECT * FROM fees WHERE fee > 100;
 ```
 
-#### Edge 0-B: Filtering on a window function result in WHERE
+### Edge 0-B: Filtering on a window function result in WHERE
 
 **Problem:**
 
@@ -49,7 +48,7 @@ WHERE rn = 1;              -- ERROR: column "rn" does not exist
 **Fix — wrap in CTE:**
 
 
-#### Edge 0-C: Aggregate in WHERE instead of HAVING
+### Edge 0-C: Aggregate in WHERE instead of HAVING
 
 **Problem:**
 
@@ -70,7 +69,7 @@ GROUP BY user_id
 HAVING COUNT(*) > 10;
 ```
 
-#### Edge 0-D: GROUP BY alias (engine-specific silently wrong behavior)
+### Edge 0-D: GROUP BY alias (engine-specific silently wrong behavior)
 
 **Problem:**
 
@@ -84,7 +83,7 @@ GROUP BY DATE_TRUNC('month', txn_date)
 GROUP BY 1
 ```
 
-#### Edge 0-E: LEFT JOIN silently converted to INNER JOIN by WHERE filter
+### Edge 0-E: LEFT JOIN silently converted to INNER JOIN by WHERE filter
 
 **Problem:**
 

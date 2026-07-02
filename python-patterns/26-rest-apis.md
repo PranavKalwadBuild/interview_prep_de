@@ -1,3 +1,5 @@
+<!-- python-patterns: Handling REST APIs in Python -->
+
 # Handling REST APIs in Python
 
 Python provides several libraries for interacting with HTTP‑based REST APIs. The most common choice is **requests** for synchronous code; for asynchronous workloads **httpx** or **aiohttp** are preferred. This guide covers patterns for consuming REST services, handling authentication, errors, pagination, rate limits, and best practices.

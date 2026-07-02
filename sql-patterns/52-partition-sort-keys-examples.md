@@ -1,8 +1,8 @@
-<!-- Part of sql-patterns: Physical Design Examples and Skew -->
+<!-- sql-patterns: Physical Design Examples and Skew -->
 
-## 35.6 Physical Design Examples
+# 35.6 Physical Design Examples
 
-### Example 1: Event table queried by date
+## Example 1: Event table queried by date
 
 ```sql
 SELECT COUNT(*)
@@ -17,7 +17,7 @@ WHERE event_date >= DATE '2025-01-01'
 
 **Edge case:** If most queries scan full months, monthly partitions may be better than daily partitions. If most queries scan one or two days, daily partitions are usually better.
 
-### Example 2: Account ledger queried by account and time
+## Example 2: Account ledger queried by account and time
 
 ```sql
 SELECT *
@@ -34,7 +34,7 @@ ORDER BY posted_at;
 
 **Gotcha:** `(posted_at, account_id)` is better for broad date scans. `(account_id, posted_at)` is better for single-account timelines.
 
-### Example 3: Large fact-to-dimension join
+## Example 3: Large fact-to-dimension join
 
 ```sql
 SELECT
@@ -49,7 +49,7 @@ INNER JOIN dim_customers d
 
 **Gotcha:** Indexing the dimension only may not be enough when the fact table is huge and the query has no selective filter.
 
-### Example 4: Skewed key
+## Example 4: Skewed key
 
 ```sql
 SELECT merchant_id, COUNT(*)
@@ -66,7 +66,7 @@ If one merchant owns 40% of all rows, any design based only on `merchant_id` wil
 - Split unusually large entities into separate processing batches.
 - Track top-key skew as a data quality metric.
 
-### Example 5: Function-wrapped predicate
+## Example 5: Function-wrapped predicate
 
 ```sql
 -- Risky: may bypass partition pruning or index usage.
@@ -80,7 +80,7 @@ WHERE event_timestamp >= TIMESTAMP '2025-01-15 00:00:00'
   AND event_timestamp <  TIMESTAMP '2025-01-16 00:00:00'
 ```
 
-### Verification Queries
+## Verification Queries
 
 Use `EXPLAIN` to verify that the intended access path is used.
 
@@ -104,7 +104,7 @@ WHERE event_date >= DATE '2025-01-01'
   AND event_date <  DATE '2025-01-08';
 ```
 
-### Gotchas
+## Gotchas
 
 - `EXPLAIN` estimates are not proof of runtime performance. Use actual execution metrics when available.
 - A stale statistics estimate can make a good key look unused.

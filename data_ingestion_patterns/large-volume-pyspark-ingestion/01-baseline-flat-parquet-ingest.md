@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 01 — Baseline: 10 TB Flat Parquet Ingest within 3 Hours -->
+
 # Scenario 01 — Baseline: 10 TB Flat Parquet Ingest within 3 Hours
 
 ## The Problem Statement (Interview Version)

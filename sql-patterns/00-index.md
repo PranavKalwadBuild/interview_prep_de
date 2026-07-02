@@ -1,3 +1,5 @@
+<!-- sql-patterns: SQL Patterns — Navigation Index -->
+
 # SQL Patterns — Navigation Index
 
 > Split from `sql_patterns.md` (15,947 lines) into 60 topic files.
@@ -115,6 +117,12 @@
 | File | Topic | Lines |
 |---|---|---|
 | [61-query-plans-explain.md](61-query-plans-explain.md) | EXPLAIN, EXPLAIN ANALYZE, Reading Query Plans — ANSI concepts with PostgreSQL/MySQL examples | ~450 |
+
+## Part 6 — Window Function Deep Dives
+
+| File | Topic | Lines |
+|---|---|---|
+| [62-range-rows-equivalence.md](62-range-rows-equivalence.md) | RANGE vs ROWS — All cases where they produce identical output, with traced examples against a single dataset | ~300 |
 
 ---
 

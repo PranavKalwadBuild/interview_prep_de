@@ -1,10 +1,10 @@
-<!-- Part of sql-patterns: Partitioning, Ordering, and Access Paths — Mental Model -->
+<!-- sql-patterns: Partitioning, Ordering, and Access Paths — Mental Model -->
 
-## 35. Partitioning, Ordering, and Access Paths
+# Partitioning, Ordering, and Access Paths
 
 > **Scope:** Platform-agnostic physical design concepts with ANSI-style SQL examples. PostgreSQL/MySQL syntax appears only where ANSI SQL has no common implementation.
 
-### 35-0. Mental Model — What Problem Each Solves
+## 35-0. Mental Model — What Problem Each Solves
 
 | Design choice | Problem it solves | Physical effect |
 |---|---|---|
@@ -35,11 +35,11 @@ With an index on user_id:
 
 ---
 
-### 35-1. Partitioning Deep Dive
+## 35-1. Partitioning Deep Dive
 
 Partitioning splits a table into physical pieces based on a column expression. At query time, the optimizer can eliminate partitions that cannot satisfy the predicate. This is called partition pruning.
 
-#### Range partitioning
+### Range partitioning
 
 Best for time-series data and ordered numeric ranges.
 
@@ -91,7 +91,7 @@ PARTITION BY RANGE COLUMNS (event_date) (
 );
 ```
 
-#### List partitioning
+### List partitioning
 
 Useful for low-cardinality values when queries commonly filter on one value or a small set of values.
 
@@ -103,7 +103,7 @@ Useful for low-cardinality values when queries commonly filter on one value or a
 
 Use list partitioning only when the list is stable and business-owned. Free-form strings and fast-changing categories create operational pain.
 
-#### Hash partitioning
+### Hash partitioning
 
 Useful when no natural range exists and writes or reads need to be spread evenly.
 
@@ -116,7 +116,7 @@ Hash partitioning helps distribution, but it does not help a date-range query un
 
 ---
 
-### 35-2. Partition Pruning
+## 35-2. Partition Pruning
 
 This form enables pruning:
 
@@ -137,7 +137,7 @@ WHERE EXTRACT(YEAR FROM event_date) = 2025;
 
 **Why:** The optimizer can compare partition boundaries to literal ranges. Once the partition column is wrapped in a function, the engine may need to evaluate each row or each partition value before deciding.
 
-### 35-3. Partition Granularity
+## 35-3. Partition Granularity
 
 ```
 Too coarse:
@@ -153,7 +153,7 @@ Usually reasonable:
   Monthly partitions for reporting tables queried by full month.
 ```
 
-### 35-4. Cardinality Rules
+## 35-4. Cardinality Rules
 
 | Column shape | Good partition key? | Why |
 |---|---|---|
@@ -163,7 +163,7 @@ Usually reasonable:
 | Status with 2-10 values | Usually no | Partitions become uneven and not selective |
 | Free text | No | Unbounded, unstable, and hard to manage |
 
-### Gotchas
+## Gotchas
 
 - Partitioning is not indexing. It skips broad slices; it does not make every point lookup fast.
 - Partition by columns used in `WHERE`, not columns merely displayed in `SELECT`.

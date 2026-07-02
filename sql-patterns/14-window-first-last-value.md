@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Window Functions — FIRST_VALUE and LAST_VALUE -->
-<!-- Source: sql_patterns.md lines 3573–3748 -->
+<!-- sql-patterns: Window Functions — FIRST_VALUE and LAST_VALUE -->
 
-## 4. Window Functions — FIRST_VALUE / LAST_VALUE
+# Window Functions — FIRST_VALUE / LAST_VALUE
 
-### What it solves
+## What it solves
 
 Return the first or last value in an ordered window partition.
 
-### Keywords to spot
+## Keywords to spot
 
 > "first ever", "first in group", "original value", "most recent value in group",clearclear
 n
@@ -17,7 +16,7 @@ n
 > "what was the price when", "inaugural", "founding", "what did they start at",
 > "compare to the beginning", "what is the latest in the group"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Opening price of a trading pair for the day vs current; initial deposit amount vs current balance; first KYC tier a user was assigned
 - **E-commerce:** Original list price of a product vs current discounted price; first item ever added to cart in a session
@@ -25,7 +24,7 @@ n
 - **HR:** Employee's original salary vs most recent salary (without using self-join); starting department vs current department
 - **Logistics:** First scan location of a package (origin) vs latest scan location; initial estimated delivery date vs current estimated date
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Pattern: First value in group
@@ -48,14 +47,14 @@ SELECT
 FROM trades;
 ```
 
-### Gotchas
+## Gotchas
 
 - `LAST_VALUE` requires `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` — the default frame cuts off at the current row, giving you the current row's value, not the last
 - In most cases, `FIRST_VALUE` + `ORDER BY DESC` = `LAST_VALUE` with correct frame. Safer to use this approach.
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 4-A: LAST_VALUE with default frame returns current row's value
+### Edge 4-A: LAST_VALUE with default frame returns current row's value
 
 **Problem:**
 
@@ -86,7 +85,7 @@ LAST_VALUE(credit_tier) OVER (
 )
 ```
 
-#### Edge 4-B: FIRST_VALUE on a partition where the first row has NULL
+### Edge 4-B: FIRST_VALUE on a partition where the first row has NULL
 
 **Problem:**
 

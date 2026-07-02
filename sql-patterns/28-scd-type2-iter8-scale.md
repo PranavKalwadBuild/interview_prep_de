@@ -1,9 +1,8 @@
-<!-- Part of sql-patterns: SCD Type 2 — Iteration 8 (Single MERGE), Iteration Summary, Gotchas, Edge Cases, At Scale -->
-<!-- Source: sql_patterns.md lines 7362–7739 -->
+<!-- sql-patterns: SCD Type 2 — Iteration 8 (Single MERGE), Iteration Summary, Gotchas, Edge Cases, At Scale -->
 
-### Iteration 8 — Single-Statement MERGE-Based SCD2
+# Iteration 8 — Single-Statement MERGE-Based SCD2
 
-#### Why this works
+## Why this works
 
 The two-phase approach (Phase 1: expire old rows, Phase 2: insert new versions) requires two separate DML statements. A single-statement MERGE is possible by exploiting a clever trick in the MERGE source: **UNION two types of rows together**.
 
@@ -19,7 +18,7 @@ INSERT rows → sk_customer IS NULL     → NOT MATCHED → INSERT (open new row
 
 ```
 
-#### The MERGE code
+## The MERGE code
 
 ```sql
 UPDATE dim_customers
@@ -60,13 +59,13 @@ WHERE NOT EXISTS (
 );
 ```
 
-#### When to use this vs the two-phase approach
+## When to use this vs the two-phase approach
 
 | Approach | Pros | Cons | Best for |
 |---|---|---|---|
 | **Two-phase (Iterations 0-7)** | Explicit and readable; easy to debug if one phase fails; works on all platforms including older MySQL/PostgreSQL | Two statements — not atomic unless wrapped in a transaction; harder to schedule as a single unit | Any platform; teams that value debuggability; environments without strong MERGE support |
 
-#### Duplicate guard for the INSERT branch
+## Duplicate guard for the INSERT branch
 
 If `stg_customers` can contain duplicate `customer_id` rows (e.g., two rows for the same customer in the same batch), the INSERT branch of the UNION will produce multiple rows with `sk_customer = NULL` for the same customer. MERGE will try to insert both, which is either silently wrong (two active rows for one customer) or raises an ambiguous match error depending on the platform.
 
@@ -86,7 +85,7 @@ Replace the `FROM stg_customers s` in both branches of the UNION with `FROM dedu
 
 ---
 
-### Iteration summary
+# Iteration summary
 
 | Iteration | Problem solved | Key addition |
 |---|---|---|
@@ -100,7 +99,7 @@ Replace the `FROM stg_customers s` in both branches of the UNION with `FROM dedu
 | 7 | Deleted record reappeared | `NOT EXISTS (is_current = TRUE ...)` naturally handles reactivation |
 | 8 | Single-statement atomicity | MERGE with UNION source: EXPIRE rows (real sk) → MATCHED→UPDATE; INSERT rows (sk=NULL) → NOT MATCHED→INSERT |
 
-### Gotchas
+# Gotchas
 
 - **Range join:** always `valid_from <= event_time < valid_to`, never `<=` for `valid_to` — exact boundary duplicates a row in the result
 - **`valid_to IS NULL` vs `is_current = TRUE`:** keep both in sync — never let them drift
@@ -109,9 +108,9 @@ Replace the `FROM stg_customers s` in both branches of the UNION with `FROM dedu
 - **`s.updated_at` as `valid_from`** (Iteration 3) means your history accurately reflects *when the business change happened*, not when your pipeline ran — critical for audit and point-in-time correctness
 - **dbt snapshot alternative:** dbt's `{% snapshot %}` block automates the entire two-phase pattern above and handles most of these edge cases. In a dbt project, always prefer snapshots over hand-rolled SCD2 SQL
 
-### Edge Cases
+# Edge Cases
 
-#### Edge 14-A: Multiple changes on the same day — ambiguous valid_from
+## Edge 14-A: Multiple changes on the same day — ambiguous valid_from
 
 **Problem:**
 
@@ -157,7 +156,7 @@ WITH latest_on_day AS (
 SELECT * FROM latest_on_day WHERE rn = 1;  -- keep only the last change per day per user
 ```
 
-#### Edge 14-B: Fact record falls in a gap between SCD2 versions
+## Edge 14-B: Fact record falls in a gap between SCD2 versions
 
 **Problem:**
 
@@ -194,7 +193,7 @@ WHERE valid_to IS NOT NULL
   AND next_valid_from > valid_to;  -- gap between end of one version and start of next
 ```
 
-#### Edge 14-C: Fact record before first SCD2 version
+## Edge 14-C: Fact record before first SCD2 version
 
 **Problem:**
 
@@ -254,9 +253,9 @@ LEFT JOIN user_tiers ut
 
 ---
 
-### At Scale
+# At Scale
 
-#### Failure Mechanism
+## Failure Mechanism
 
 The temporal join pattern at scale:
 
@@ -293,7 +292,7 @@ JOIN scd2_month_bridge s
 
 ```
 
-#### System-Level Fix
+## System-Level Fix
 
 ```sql
 CREATE TABLE user_tiers (

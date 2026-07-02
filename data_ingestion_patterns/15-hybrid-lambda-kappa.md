@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Hybrid Lambda/Kappa Architecture: Real-Time Fraud Detection with Historical Correctness -->
+
 # Hybrid Lambda/Kappa Architecture: Real-Time Fraud Detection with Historical Correctness
 
 ![Domain: Architecture Patterns](https://img.shields.io/badge/Domain-Architecture%20Patterns-blue)

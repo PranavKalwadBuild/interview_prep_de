@@ -1,3 +1,5 @@
+<!-- python-patterns: OOP-Related Built-in Decorators in Python -->
+
 # OOP-Related Built-in Decorators in Python
 
 ## Why Decorators Matter in OOP

@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Deduplication Patterns -->
-<!-- Source: sql_patterns.md lines 4384–4676 -->
+<!-- sql-patterns: Deduplication Patterns -->
 
-## 7. Deduplication Patterns
+# Deduplication Patterns
 
-### What it solves
+## What it solves
 
 Remove duplicate rows, keeping one record per entity based on a rule (e.g., latest, highest, first).
 
-### Keywords to spot
+## Keywords to spot
 
 > "deduplicate", "remove duplicates", "latest record", "keep only one",
 > "same X appeared multiple times", "most recent version",
@@ -15,7 +14,7 @@ Remove duplicate rows, keeping one record per entity based on a rule (e.g., late
 > "exactly-once", "canonical record", "master record", "single source of truth",
 > "redundant rows", "at-least-once delivery", "dedup key", "primary version"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Deduplicate trade records from multiple exchange partners sending the same trade; remove double-counted fee events caused by retry logic in payment APIs
 - **E-commerce:** Remove duplicate order events from a payment gateway webhook that fires multiple times on network timeout; dedup product catalogue feed rows synced from multiple suppliers
@@ -23,7 +22,7 @@ Remove duplicate rows, keeping one record per entity based on a rule (e.g., late
 - **Healthcare:** Retain only the most recent patient record per encounter ID from multiple source systems (EMR + billing + lab); deduplicate lab results sent twice due to HL7 retries
 - **Marketing:** Remove duplicate click-stream events from ad networks that report the same click across two attribution windows; deduplicate email open events fired by email preview bots
 
-### Boilerplate — ROW_NUMBER method (most versatile)
+## Boilerplate — ROW_NUMBER method (most versatile)
 
 ```sql
 -- Keep latest record per trade_id
@@ -39,7 +38,7 @@ WITH deduped AS (
 SELECT * FROM deduped WHERE rn = 1;
 ```
 
-### Boilerplate — GROUP BY + JOIN method
+## Boilerplate — GROUP BY + JOIN method
 
 ```sql
 -- Keep the row with the max timestamp per trade_id
@@ -55,7 +54,7 @@ INNER JOIN latest l
     AND r.ingested_at = l.latest_ingested_at;
 ```
 
-#### Edge 7-A: Tied timestamps make dedup non-deterministic
+### Edge 7-A: Tied timestamps make dedup non-deterministic
 
 **Problem:**
 
@@ -93,7 +92,7 @@ WITH ranked AS (
 SELECT * FROM ranked WHERE rn = 1 AND tie_count > 1;  -- report ties for manual review
 ```
 
-#### Edge 7-B: Dedup after a JOIN that fans out
+### Edge 7-B: Dedup after a JOIN that fans out
 
 **Problem:**
 
@@ -119,7 +118,7 @@ LEFT JOIN txn_tags tag ON t.txn_id = tag.txn_id
 GROUP BY t.txn_id, t.amount;
 ```
 
-#### Edge 7-C: Dedup using a hash key that doesn't capture all meaningful columns
+### Edge 7-C: Dedup using a hash key that doesn't capture all meaningful columns
 
 **Problem:**
 
@@ -169,9 +168,9 @@ SELECT * FROM deduped WHERE rn = 1;
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 `ROW_NUMBER() OVER (PARTITION BY txn_id ORDER BY updated_at DESC)` on 1B rows:
 
@@ -179,7 +178,7 @@ SELECT * FROM deduped WHERE rn = 1;
 - Hot keys create skew: one transaction or account with many versions can dominate runtime.
 - Deleting duplicates after ranking usually causes a second full-table write path.
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 -- Keep the source bounded before ranking.
@@ -201,7 +200,7 @@ FROM ranked
 WHERE rn = 1;
 ```
 
-#### System-Level Fix
+### System-Level Fix
 
 ```sql
 -- Maintain a current-state table instead of ranking the full history for every query.

@@ -1,3 +1,5 @@
+<!-- python-patterns: Multithreading Basics in Python -->
+
 # Multithreading Basics in Python
 
 ## Why Multithreading Matters

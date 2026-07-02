@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Data Modelling Patterns for Data Engineer Interviews -->
+
 # Data Modelling Patterns for Data Engineer Interviews
 **Your go-to revision guide — patterns, schema design, and business context**
 **Applicable for any data engineering interview — fintech, e-commerce, SaaS, logistics, healthcare**

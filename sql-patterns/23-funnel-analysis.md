@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Funnel Analysis -->
-<!-- Source: sql_patterns.md lines 5980–6072 -->
+<!-- sql-patterns: Funnel Analysis -->
 
-## 13. Funnel Analysis
+# Funnel Analysis
 
-### What it solves
+## What it solves
 
 Track what % of users complete each step of a multi-step process (signup → KYC → first deposit → first trade).
 
-### Keywords to spot
+## Keywords to spot
 
 > "funnel", "conversion", "drop-off", "how many users reached step X",
 > "out of users who did A, how many did B",
@@ -16,7 +15,7 @@ Track what % of users complete each step of a multi-step process (signup → KYC
 > "progression", "step-by-step", "what % made it to", "pipeline",
 > "how many completed all steps", "pass-through rate"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Onboarding funnel (signup → email verify → KYC → deposit → first trade); payment funnel (initiate → OTP → bank redirect → success/failure); loan application funnel (apply → document upload → credit check → approval)
 - **E-commerce:** Purchase funnel (visit → product view → add to cart → checkout → purchase); identify highest drop-off step to prioritise UX improvement investment
@@ -25,7 +24,7 @@ Track what % of users complete each step of a multi-step process (signup → KYC
 - **Marketplace:** Seller onboarding funnel (register → list first product → first sale → 10th sale); buyer trust funnel (browse → save → first purchase → repeat purchase)
 - **HR/Recruitment:** Hiring funnel (applied → screened → interviewed → offered → accepted); identify which interview stage has the highest drop-off rate by role
 
-### Boilerplate — CASE WHEN + MAX approach (cleanest)
+## Boilerplate — CASE WHEN + MAX approach (cleanest)
 
 ```sql
 -- Each step is a flag; MAX() collapses per user
@@ -52,7 +51,7 @@ SELECT
 FROM user_funnel;
 ```
 
-### Boilerplate — Ordered funnel (step must happen AFTER previous step)
+## Boilerplate — Ordered funnel (step must happen AFTER previous step)
 
 ```sql
 WITH ordered_events AS (
@@ -86,7 +85,7 @@ SELECT
 FROM pivoted;
 ```
 
-### Gotchas
+## Gotchas
 
 - Simple funnel (CASE WHEN MAX) does not enforce ordering — a user who did KYC before signup would still count
 - Ordered funnel enforces sequence by comparing timestamps

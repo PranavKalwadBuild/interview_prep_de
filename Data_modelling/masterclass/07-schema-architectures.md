@@ -1,6 +1,8 @@
-## 7. Dimensional vs Data Vault vs One Big Table (OBT)
+<!-- data-modelling-patterns: Dimensional vs Data Vault vs One Big Table (OBT) -->
 
-### When Each Architecture Wins
+# Dimensional vs Data Vault vs One Big Table (OBT)
+
+## When Each Architecture Wins
 
 These three paradigms are not competing alternatives for the same problem — they solve different problems. The confusion arises because all three can technically produce similar analytical outputs.
 
@@ -20,9 +22,9 @@ These three paradigms are not competing alternatives for the same problem — th
 
 **OBT wins when**: The primary consumer is a Python/SQL data scientist building ML features. The wide table eliminates joins that would otherwise be written 50 times across 50 notebooks. The domain is narrow enough that the OBT stays manageable (< 200 columns). At Airbnb and Netflix, OBT patterns are used for ML feature serving — not for BI reporting.
 
-### Same Domain, Three Ways: E-Commerce Order Lines
+## Same Domain, Three Ways: E-Commerce Order Lines
 
-#### Kimball Dimensional
+### Kimball Dimensional
 
 ```sql
 -- dim_customer, dim_sku, dim_date → fact_order_line
@@ -40,7 +42,7 @@ GROUP BY 1, 2, 3;
 
 3-join star schema query. Fast on columnar engines with proper clustering. BI tool-friendly.
 
-#### Data Vault
+### Data Vault
 
 ```sql
 -- Hub_Customer → Link_Order_Customer → Link_OrderLine → Sat_OrderLine_Details
@@ -70,7 +72,7 @@ GROUP BY 1, 2, 3;
 
 7+ join query. Not BI-tool friendly. Typically used as the raw layer, with a Business Vault or presentation layer (which looks like Kimball) built on top. The Data Vault is the integration layer, not the reporting layer.
 
-#### One Big Table (OBT)
+### One Big Table (OBT)
 
 ```sql
 -- obt_order_lines: all dimensions denormalized into one table

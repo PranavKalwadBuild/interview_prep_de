@@ -1,5 +1,4 @@
-<!-- Part of sql-patterns: Quick Reference — Interview Questions Q10–Q20 (Top-N, Ranking, Gaps, Retention) -->
-<!-- Source: sql_patterns.md lines 15501–15750 -->
+<!-- sql-patterns: Quick Reference — Interview Questions Q10–Q20 (Top-N, Ranking, Gaps, Retention) -->
 
     SELECT
         category,
@@ -67,7 +66,7 @@ SELECT dept_id, AVG(salary) FROM employees GROUP BY dept_id HAVING is_active = T
 SELECT dept_id, AVG(salary) FROM employees WHERE is_active = TRUE GROUP BY dept_id;
 ---
 
-### Q13. Find Missing Numbers / Gaps in a Sequence
+# Q13. Find Missing Numbers / Gaps in a Sequence
 
 **The question:** "The orders table has an order_id column that should be sequential. Find all missing IDs."
 
@@ -125,7 +124,7 @@ FROM ranked
 WHERE rn = 2;
 ---
 
-### Q15. Cumulative Distribution — Percentile Rank
+# Q15. Cumulative Distribution — Percentile Rank
 
 **The question:** "Show what percentage of employees earn less than or equal to each employee."
 
@@ -155,7 +154,7 @@ FROM employees
 GROUP BY dept_id;
 ---
 
-### Q17. Median Salary per Department
+# Q17. Median Salary per Department
 
 **The question:** "Find the median salary in each department."
 
@@ -200,7 +199,7 @@ GROUP BY d.dept_name
 ORDER BY headcount DESC;
 ---
 
-### Q19. Find the Most Recent Record per Entity
+# Q19. Find the Most Recent Record per Entity
 
 **The question:** "Get the latest order for each customer."
 

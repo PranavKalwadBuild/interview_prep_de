@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Datetime and Timezone -->
+<!-- sql-patterns: Silent Errors — Datetime and Timezone -->
 
 # Silent Errors — Datetime and Timezone
 

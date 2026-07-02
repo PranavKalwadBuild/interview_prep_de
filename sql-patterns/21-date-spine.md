@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Date Spine / Calendar Table -->
-<!-- Source: sql_patterns.md lines 5449–5693 -->
+<!-- sql-patterns: Date Spine / Calendar Table -->
 
-## 11. Date Spine / Calendar Table
+# Date Spine / Calendar Table
 
-### What it solves
+## What it solves
 
 Generate a continuous series of dates so that time-series aggregations don't skip missing periods (e.g., days with zero trades).
 
-### Keywords to spot
+## Keywords to spot
 
 > "even when there are no events", "zero values for missing days",
 > "fill gaps", "continuous time series", "no missing dates",
@@ -16,7 +15,7 @@ Generate a continuous series of dates so that time-series aggregations don't ski
 > "complete date range", "calendar join", "every business day",
 > "dense time series", "no holes", "fill forward"
 
-### Business Context
+## Business Context
 
 - **Any domain:** Daily/weekly/monthly metric charts must show 0 for periods with no data — not skip them (missing bars in charts confuse stakeholders)
 - **E-commerce:** Daily revenue report showing every day including zero-revenue days (ops alert if day is missing); identify products with zero sales on specific days for out-of-stock detection
@@ -25,7 +24,7 @@ Generate a continuous series of dates so that time-series aggregations don't ski
 - **Finance:** SLA compliance report requires every calendar day — including weekends and holidays — to prove continuous data coverage
 - **Retail:** Inventory level per day requires a date spine to forward-fill stock levels on days with no transactions
 
-### Boilerplate — Recursive CTE date spine
+## Boilerplate — Recursive CTE date spine
 
 ```sql
 -- Generate all dates between two bounds
@@ -53,15 +52,15 @@ LEFT JOIN daily_trades dt ON ds.dt = dt.trade_date
 ORDER BY ds.dt;
 ```
 
-### Gotchas
+## Gotchas
 
 - MySQL recursive CTEs require `SET max_sp_recursion_depth` for long ranges — use `generate_series` in PostgreSQL instead
 - Always use `LEFT JOIN` from the spine to actual data (not the other way)
 - `COALESCE(metric, 0)` handles the NULLs introduced by the LEFT JOIN
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 11-A: Date spine missing leap day
+### Edge 11-A: Date spine missing leap day
 
 **Problem:**
 
@@ -98,7 +97,7 @@ SELECT explode(sequence(DATE '2024-01-01', DATE '2024-12-31', INTERVAL 1 DAY)) A
 -- All of these handle leap years correctly — never hardcode UNION ALL lists of dates
 ```
 
-#### Edge 11-B: Timezone shift creates a 25-hour or 23-hour day in the spine
+### Edge 11-B: Timezone shift creates a 25-hour or 23-hour day in the spine
 
 **Problem:**
 
@@ -137,16 +136,16 @@ FROM spine;
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 A date spine CROSS JOINed to a large entity table creates a cartesian product:
 
 - 100M users × 365 days = 36.5B row intermediate result
 - Even at 10 bytes/row: 365GB of intermediate data — OOM in almost every engine
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 -- BEFORE: date spine × users to fill daily activity gaps — 36.5B rows
@@ -200,7 +199,7 @@ user_spine AS (
 -- This generates much less total rows for users with narrow activity windows
 ```
 
-#### System-Level Fix
+### System-Level Fix
 
 
 ---

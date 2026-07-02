@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Type Coercion and Casting -->
+<!-- sql-patterns: Silent Errors — Type Coercion and Casting -->
 
 # Silent Errors — Type Coercion and Casting
 

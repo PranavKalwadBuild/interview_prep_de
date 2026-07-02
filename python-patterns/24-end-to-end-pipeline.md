@@ -1,3 +1,5 @@
+<!-- python-patterns: End-to-End Data Pipeline in Pure Python (Scalable to 10 TB) -->
+
 # End-to-End Data Pipeline in Pure Python (Scalable to 10 TB)
 
 ## Overview

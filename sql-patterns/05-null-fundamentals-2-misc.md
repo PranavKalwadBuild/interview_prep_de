@@ -1,12 +1,11 @@
-<!-- Part of sql-patterns: NULL Handling Fundamentals Part 2 — NULLIF, IS DISTINCT FROM, ORDER BY, GROUP BY, Engine Differences + String Functions, Constraints, Set Operations -->
-<!-- Source: sql_patterns.md lines 915–1187 -->
+<!-- sql-patterns: NULL Handling Fundamentals Part 2 — NULLIF, IS DISTINCT FROM, ORDER BY, GROUP BY, Engine Differences + String Functions, Constraints, Set Operations -->
 
 Standard SQL null-safe equality. Treats NULL as a comparable value: NULL IS DISTINCT FROM NULL → FALSE (they are the same "unknown").
 
 
 ---
 
-#### I-8. NULLS FIRST / NULLS LAST in ORDER BY
+# I-8. NULLS FIRST / NULLS LAST in ORDER BY
 
 When sorting a column that contains NULLs, engines disagree on where NULLs appear:
 
@@ -17,7 +16,7 @@ When sorting a column that contains NULLs, engines disagree on where NULLs appea
 
 ---
 
-#### I-9. NULL in GROUP BY
+# I-9. NULL in GROUP BY
 
 GROUP BY treats all NULL values as a **single group** — multiple rows with NULL in the grouping column collapse into one output row.
 

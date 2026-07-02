@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: Late Arriving Facts, NULL Handling, Performance -->
+<!-- data-modelling-patterns: Late Arriving Facts, NULL Handling, Performance -->
 
 # Edge Cases and Performance
 

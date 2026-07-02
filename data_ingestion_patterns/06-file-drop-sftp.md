@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: SFTP File Drop Ingestion — B2B Partner Data Exchange -->
+
 # SFTP File Drop Ingestion — B2B Partner Data Exchange
 
 > **Domain:** Data Ingestion | **Difficulty:** Senior / Staff | **Category:** File-Based Batch Ingestion

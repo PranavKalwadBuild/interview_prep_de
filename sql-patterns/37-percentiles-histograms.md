@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Percentiles and Histograms -->
-<!-- Source: sql_patterns.md lines 9573–9840 -->
+<!-- sql-patterns: Percentiles and Histograms -->
 
-## 23. Percentiles & Histograms
+# Percentiles & Histograms
 
-### What it solves
+## What it solves
 
 Compute distribution statistics — median, p90, p99, bucketed distributions.
 
-### Keywords to spot
+## Keywords to spot
 
 > "median", "percentile", "p90", "p95", "p99",
 > "distribution", "histogram", "bucket", "quantile",
@@ -16,7 +15,7 @@ Compute distribution statistics — median, p90, p99, bucketed distributions.
 > "value at X% of population", "how spread out", "variance",
 > "SLA compliance %", "within acceptable range"
 
-### Business Context
+## Business Context
 
 - **Fintech/Infrastructure:** p99 trade execution latency (SLA — must be < 200ms); median order size per trading pair (customer profile); distribution of deposit amounts to size fraud thresholds
 - **E-commerce:** Distribution of order values in buckets (pricing strategy); p90 delivery time per carrier (carrier SLA benchmarking); histogram of cart sizes to optimise checkout UX
@@ -24,7 +23,7 @@ Compute distribution statistics — median, p90, p99, bucketed distributions.
 - **HR:** Salary distribution by department for pay equity analysis; percentile ranking of employee performance scores for forced ranking calibration; median years-to-promotion by department
 - **Risk/Compliance:** Distribution of transaction sizes to set automated review thresholds; p99 of daily withdrawal amounts per customer for AML trip-wire calibration
 
-### Boilerplate — Percentile functions
+## Boilerplate — Percentile functions
 
 ```sql
 SELECT
@@ -50,7 +49,7 @@ SELECT
 FROM trades;
 ```
 
-### Boilerplate — Histogram with buckets
+## Boilerplate — Histogram with buckets
 
 ```sql
 -- Bucket trade amounts into ranges
@@ -69,15 +68,15 @@ GROUP BY 1
 ORDER BY MIN(trade_amount);
 ```
 
-### Gotchas
+## Gotchas
 
 - `PERCENTILE_CONT` interpolates between values (continuous); `PERCENTILE_DISC` returns an actual value from the dataset
 - Median = `PERCENTILE_CONT(0.5)`
 - Not all databases support `PERCENTILE_CONT` — know the alternative for your target DB
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 23-A: PERCENTILE_CONT vs PERCENTILE_DISC — two different answers
+### Edge 23-A: PERCENTILE_CONT vs PERCENTILE_DISC — two different answers
 
 **Problem:**
 
@@ -126,7 +125,7 @@ GROUP BY trading_pair;
 -- "Using PERCENTILE_DISC per RBI reporting guidelines (exact data values required)"
 ```
 
-#### Edge 23-B: APPROX_PERCENTILE vs exact percentile — when the difference matters
+### Edge 23-B: APPROX_PERCENTILE vs exact percentile — when the difference matters
 
 **Problem:**
 
@@ -175,9 +174,9 @@ FROM trades;
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 `PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY trade_amount)` on 800M rows:
 
@@ -185,7 +184,7 @@ FROM trades;
 - Per-group percentiles (`GROUP BY trading_pair`): sort within each group — slightly better but still O(N log N) total
 - At 800M rows × 8 bytes = 6.4GB of data to sort: requires hundreds of GBs of disk spill in most engines
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 

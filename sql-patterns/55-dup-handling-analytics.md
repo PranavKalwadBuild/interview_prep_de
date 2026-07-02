@@ -1,9 +1,8 @@
-<!-- Part of sql-patterns: Duplicate Handling — Sessionization through Cohort Analysis (36-F to 36-L) -->
-<!-- Source: sql_patterns.md lines 14389–14685 -->
+<!-- sql-patterns: Duplicate Handling — Sessionization through Cohort Analysis (36-F to 36-L) -->
 
-### 36-G. Duplicates in Deduplication (the Pattern Itself)
+# 36-G. Duplicates in Deduplication (the Pattern Itself)
 
-#### Understanding duplicate types — not all duplicates are the same
+## Understanding duplicate types — not all duplicates are the same
 
 ```sql
 -- TYPE 1 — Exact duplicates: every column is identical.
@@ -20,7 +19,7 @@
 -- Fix: normalise (LOWER, TRIM, REGEXP_REPLACE) before dedup key comparison.
 ```
 
-#### The three dedup patterns and when to use each
+## The three dedup patterns and when to use each
 
 ```sql
 -- PATTERN A: DISTINCT — exact duplicates only
@@ -76,9 +75,9 @@ FROM ranked;
 
 ---
 
-### 36-H. Duplicates in Top-N per Group
+# 36-H. Duplicates in Top-N per Group
 
-#### Problem — JOIN fan-out before ranking inflates row counts
+## Problem — JOIN fan-out before ranking inflates row counts
 
 ```sql
 -- Goal: top 3 products per category by revenue.
@@ -130,9 +129,9 @@ SELECT * FROM ranked WHERE rnk <= 3;
 
 ---
 
-### 36-I. Duplicates in Rolling Window Aggregations
+# 36-I. Duplicates in Rolling Window Aggregations
 
-#### Problem — Duplicate events inflate the rolling count / sum
+## Problem — Duplicate events inflate the rolling count / sum
 
 ```sql
 -- 7-day rolling count of unique users. Source has duplicate event rows
@@ -169,9 +168,9 @@ FROM clean;
 
 ---
 
-### 36-J. Duplicates in Period-over-Period / MoM / YoY
+# 36-J. Duplicates in Period-over-Period / MoM / YoY
 
-#### Problem — Duplicate transactions inflate the monthly revenue baseline
+## Problem — Duplicate transactions inflate the monthly revenue baseline
 
 ```sql
 -- If January has 5 duplicate transactions (same txn_id loaded twice),
@@ -216,9 +215,9 @@ FROM monthly;
 
 ---
 
-### 36-K. Duplicates in Date Spine / Calendar Table
+# 36-K. Duplicates in Date Spine / Calendar Table
 
-#### Problem — Duplicate fact rows cause multiple matches per spine date
+## Problem — Duplicate fact rows cause multiple matches per spine date
 
 ```sql
 -- date_spine has 1 row per date (guaranteed).
@@ -250,9 +249,9 @@ LEFT JOIN daily_agg d ON s.dt = d.txn_date;
 
 ---
 
-### 36-L. Duplicates in Cohort Analysis & Retention
+# 36-L. Duplicates in Cohort Analysis & Retention
 
-#### Problem — Duplicate first-event rows inflate cohort size
+## Problem — Duplicate first-event rows inflate cohort size
 
 
 ---

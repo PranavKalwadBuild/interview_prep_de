@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: CDC: Log-Based Change Data Capture -->
+
 # CDC: Log-Based Change Data Capture
 
 ![Domain: Data Ingestion](https://img.shields.io/badge/Domain-Data%20Ingestion-blue)

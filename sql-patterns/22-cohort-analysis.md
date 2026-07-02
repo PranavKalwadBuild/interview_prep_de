@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Cohort Analysis and Retention -->
-<!-- Source: sql_patterns.md lines 5694–5979 -->
+<!-- sql-patterns: Cohort Analysis and Retention -->
 
-## 12. Cohort Analysis & Retention
+# Cohort Analysis & Retention
 
-### What it solves
+## What it solves
 
 Group users by the period they first appeared (cohort) and track their behaviour over subsequent periods.
 
-### Keywords to spot
+## Keywords to spot
 
 > "cohort", "retention", "users who signed up in month X",
 > "day 1 / day 7 / day 30 retention", "returning users",
@@ -17,7 +16,7 @@ Group users by the period they first appeared (cohort) and track their behaviour
 > "resurface", "win-back", "reactivation", "month N retention",
 > "what % are still active", "cohort heat map"
 
-### Business Context
+## Business Context
 
 - **Fintech:** % of users who signed up in January still trading 3 months later (product-market fit signal); identify which acquisition channels produce cohorts with the highest 6-month retention
 - **SaaS:** Day-7/Day-30/Day-90 retention curves by signup month; compare retention across pricing tiers to determine if paid users stay longer; cohort-based LTV calculation
@@ -25,7 +24,7 @@ Group users by the period they first appeared (cohort) and track their behaviour
 - **Gaming/Apps:** Week-1 and Week-4 retention by install cohort; compare retention for users who completed onboarding vs those who skipped it
 - **Subscription/Media:** Monthly cohort churn curves; identify which content genres keep subscribers longest; measure impact of price increase on cohort retention
 
-### Boilerplate
+## Boilerplate
 
 -- ANSI SQL approach: Extract year/month for grouping (most portable)
 -- Step 1: Find each user's first activity month (cohort assignment)

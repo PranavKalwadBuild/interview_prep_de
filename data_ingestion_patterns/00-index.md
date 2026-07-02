@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Data Ingestion Patterns — Navigation Index -->
+
 # Data Ingestion Patterns — Navigation Index
 
 > Production-grade, tech-stack-agnostic data ingestion patterns for data engineers.

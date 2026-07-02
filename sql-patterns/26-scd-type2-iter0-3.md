@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: SCD Type 2 — Core Concept, Schema, Point-in-Time Query, Iterations 0–3 -->
-<!-- Source: sql_patterns.md lines 6714–7037 -->
+<!-- sql-patterns: SCD Type 2 — Core Concept, Schema, Point-in-Time Query, Iterations 0–3 -->
 
-## 14. Slowly Changing Dimensions (SCD Type 2)
+# Slowly Changing Dimensions (SCD Type 2)
 
-### What it solves
+## What it solves
 
 SCD Type 2 = **keep full history**. Every time an attribute changes, you close the existing row and insert a new one. This lets you answer "what was the value **at the time** of this event?" — something SCD1 destroys forever by overwriting.
 
-### Keywords to spot
+## Keywords to spot
 
 > "as of date", "what was the value at the time of",
 > "historical state", "point-in-time", "current vs historical",
@@ -17,7 +16,7 @@ SCD Type 2 = **keep full history**. Every time an attribute changes, you close t
 > "what was active when", "temporal join", "bi-temporal",
 > "version history", "what changed", "reconstruct state at"
 
-### Business Context
+## Business Context
 
 - **Fintech:** What fee/KYC tier was active for a user at the time of each transaction; what FX rate was in effect when an order was placed
 - **E-commerce:** What price/discount was active for a product when an order was placed (accurate revenue accounting)
@@ -25,7 +24,7 @@ SCD Type 2 = **keep full history**. Every time an attribute changes, you close t
 - **Telecom:** What plan was a customer on when they made a call (correct billing)
 - **Healthcare:** Which insurance plan covered a patient during a specific procedure
 
-### Why SCD2 needs two operations (critical to understand)
+## Why SCD2 needs two operations (critical to understand)
 
 SCD1 can overwrite in place — one MERGE handles everything. SCD2 cannot, because for every change you must:
 
@@ -39,7 +38,7 @@ A single MERGE cannot UPDATE an existing row AND INSERT a new row for the same j
 
 ---
 
-### Schema used across all iterations
+## Schema used across all iterations
 
 ```sql
 -- Source (staging)
@@ -64,7 +63,7 @@ Fact tables join to `sk_customer`, not `customer_id`. If customer 1001 has 3 his
 
 ---
 
-### Point-in-Time Query (read-side — must know cold)
+## Point-in-Time Query (read-side — must know cold)
 
 Before writing the load logic, understand what the output is used for:
 
@@ -92,7 +91,7 @@ SELECT * FROM dim_customers WHERE valid_to IS NULL;
 
 ---
 
-### Iteration 0 — Base Two-Phase SCD2 (Naive starting point)
+## Iteration 0 — Base Two-Phase SCD2 (Naive starting point)
 
 ```sql
 -- UPDATE: Expire changed rows
@@ -146,7 +145,7 @@ Each iteration below fixes one of these.
 
 ---
 
-### Iteration 1 — Idempotency (Don't fire unless something actually changed)
+## Iteration 1 — Idempotency (Don't fire unless something actually changed)
 
 **Problem:** Running Phase 1 on unchanged data still checks every row. More critically — Branch B in Phase 2 uses `valid_to = CURRENT_TIMESTAMP` as a proxy for "just expired this run", but that exact timestamp can collide with prior runs.
 
@@ -202,7 +201,7 @@ WHERE NOT EXISTS (
 
 ---
 
-### Iteration 2 — NULL-Safe Comparison (IS DISTINCT FROM)
+## Iteration 2 — NULL-Safe Comparison (IS DISTINCT FROM)
 
 **Problem:** Source sends `city = NULL`. Target has `city = 'Delhi'`. Phase 1's `s.city <> d.city` returns NULL → row not expired → no new version created → change is silently swallowed. Also Phase 2's `d.city = s.city` returns NULL → `NOT EXISTS` is always TRUE → duplicate inserts for any NULL field.
 
@@ -256,7 +255,7 @@ WHERE NOT EXISTS (
 
 ---
 
-### Iteration 3 — Late Arriving Records
+## Iteration 3 — Late Arriving Records
 
 **Problem:** Daily pipeline runs at 08:00. At 10:00 a record for `customer_id = 1001` arrives with `updated_at = 2026-01-15`. Target already has a current version with `valid_from = 2026-04-01` (months newer). Without a guard:
 

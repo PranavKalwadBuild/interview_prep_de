@@ -1,10 +1,12 @@
-## 12. Business Logic: DE Layer vs Reporting Layer
+<!-- data-modelling-patterns: Business Logic: DE Layer vs Reporting Layer -->
+
+# Business Logic: DE Layer vs Reporting Layer
 
 > The interview question is never "can the BI tool compute this?" Both layers can technically compute almost anything. The real question: **who owns the answer, who else needs it, what breaks if it's wrong, and how often does the definition change?**
 
 ---
 
-### The Core Mental Model
+## The Core Mental Model
 
 Every piece of business logic lives on a spectrum:
 
@@ -21,7 +23,7 @@ Tested, lineage tracked                 ←→  Hidden inside .pbix or .twb bina
 
 ---
 
-### Decision Criteria
+## Decision Criteria
 
 **Push logic DOWN into DE layer when:**
 
@@ -48,7 +50,7 @@ Tested, lineage tracked                 ←→  Hidden inside .pbix or .twb bina
 
 ---
 
-### Case 1: Must Be in DE Layer — Multi-Source Customer Health Score
+## Case 1: Must Be in DE Layer — Multi-Source Customer Health Score
 
 **Context**: A SaaS company computes customer health score from four source systems: Segment (product engagement events), Zendesk (support ticket volume and severity), Salesforce (contract value and renewal date), Stripe (billing payment history).
 
@@ -115,7 +117,7 @@ The BI tool reads one row per customer from `dim_customer_health`. The four-way 
 
 ---
 
-### Case 2: Must Be in DE Layer — Sessionization from Raw Clickstream
+## Case 2: Must Be in DE Layer — Sessionization from Raw Clickstream
 
 **Context**: 200M events/day. Product manager wants funnel conversion rate: `checkout_start → payment_complete`, restricted to sessions where the user entered via a paid marketing campaign.
 
@@ -184,7 +186,7 @@ GROUP BY utm_source
 
 ---
 
-### Case 3: Must Be in DE Layer — SCD Type 2 and Point-in-Time Joins
+## Case 3: Must Be in DE Layer — SCD Type 2 and Point-in-Time Joins
 
 **Context**: Sales commission calculation. Salespeople move between regions. Commission rate varies by region. The question: "What commission does salesperson Alice owe for her January sales?"
 
@@ -233,7 +235,7 @@ The BI tool reads `fct_sales_commission` with `commission_owed` pre-computed at 
 
 ---
 
-### Case 4: Must Be in DE Layer — GDPR/SOX Compliance Logic
+## Case 4: Must Be in DE Layer — GDPR/SOX Compliance Logic
 
 **GDPR data masking — why BI layer is structurally wrong**:
 
@@ -274,7 +276,7 @@ The SOX auditor signs off on the dbt lineage DAG. There is no equivalent artifac
 
 ---
 
-### Case 5: Must Be in DE Layer — Shared Metric: "Active User" Definition
+## Case 5: Must Be in DE Layer — Shared Metric: "Active User" Definition
 
 **The fragmentation failure**: At a growth-stage SaaS company, five teams each define "Monthly Active User" in their own BI workbook:
 
@@ -319,7 +321,7 @@ When the growth team argues that trial users should be included in MAU for their
 
 ---
 
-### Case 6: Belongs in BI Layer — Relative Time Calculations
+## Case 6: Belongs in BI Layer — Relative Time Calculations
 
 **Why YTD belongs in DAX/Tableau, not the warehouse**:
 
@@ -340,7 +342,7 @@ This measure recalculates at render time using the current filter context. It is
 
 ---
 
-### Case 7: The Genuinely Grey Area — Conversion Rate
+## Case 7: The Genuinely Grey Area — Conversion Rate
 
 **Symptom of the problem**: `conversion_rate = orders / sessions`. Two numbers divided. Looks simple. You put it in a Tableau calculated field in 15 minutes.
 
@@ -384,7 +386,7 @@ The PR comment on line 3 is the audit trail. The BI tool reads `fct_conversion` 
 
 ---
 
-### Case 8: Belongs in BI Layer — What-If Scenario Analysis
+## Case 8: Belongs in BI Layer — What-If Scenario Analysis
 
 **Context**: A CFO wants to model three revenue scenarios for the board: base case, bull case (15% above base), bear case (20% below base). The "base" is the historical actuals from the warehouse.
 
@@ -410,7 +412,7 @@ The slider moves from -30% to +30%. All calculations update in real time. The wa
 
 ---
 
-### Decision Matrix
+## Decision Matrix
 
 | Logic Type | DE Layer | BI Layer | Why |
 |-----------|----------|----------|-----|
@@ -431,7 +433,7 @@ The slider moves from -30% to +30%. All calculations update in real time. The wa
 
 ---
 
-### The Medallion Architecture Formalization
+## The Medallion Architecture Formalization
 
 The Databricks Bronze/Silver/Gold model makes the boundary explicit:
 
@@ -450,7 +452,7 @@ The dbt Semantic Layer (MetricFlow) extends this further: metrics are defined as
 
 ---
 
-### Real-World Failure Modes Summary
+## Real-World Failure Modes Summary
 
 | Getting it wrong | What breaks | How badly |
 |-----------------|-------------|-----------|

@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Self Joins and Consecutive Row Comparisons -->
-<!-- Source: sql_patterns.md lines 7972–8192 -->
+<!-- sql-patterns: Self Joins and Consecutive Row Comparisons -->
 
-## 16. Self Joins & Consecutive Row Comparisons
+# Self Joins & Consecutive Row Comparisons
 
-### What it solves
+## What it solves
 
 Compare a row with another row in the same table — pairs, hierarchies, consecutive events.
 
-### Keywords to spot
+## Keywords to spot
 
 > "pairs", "matches", "compare each row with another",
 > "find users who traded with each other", "parent-child",
@@ -15,7 +14,7 @@ Compare a row with another row in the same table — pairs, hierarchies, consecu
 > "same table twice", "row compared to another row", "cross-reference within table",
 > "events close together", "overlap", "simultaneous", "relate to itself"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Two trades from the same user within 5 minutes (wash trading / market manipulation detection); detect round-trip transactions (buy and sell of same asset within 1 hour)
 - **E-commerce:** Find product pairs frequently bought together in the same order (market basket analysis seed data); identify orders placed by the same device within 10 minutes (potential duplicate order)
@@ -23,7 +22,7 @@ Compare a row with another row in the same table — pairs, hierarchies, consecu
 - **Logistics:** Find consecutive shipment scans from the same carrier within 1 hour; detect overlapping delivery windows for the same driver
 - **Fraud:** Two card transactions at different merchants within 2 minutes (physical impossibility — card cloning signal); accounts that share the same device ID or IP (account linkage graph)
 
-### Boilerplate — Consecutive event pairs
+## Boilerplate — Consecutive event pairs
 
 ```sql
 -- Find pairs of trades by same user within 5 minutes
@@ -39,7 +38,7 @@ JOIN trades b
     AND a.trade_id < b.trade_id          -- avoid duplicates and self-join
 ```
 
-### Boilerplate — Hierarchy (manager/employee)
+## Boilerplate — Hierarchy (manager/employee)
 
 ```sql
 -- employees(emp_id, emp_name, manager_id)
@@ -51,15 +50,15 @@ FROM employees e
 LEFT JOIN employees m ON e.manager_id = m.emp_id;
 ```
 
-### Gotchas
+## Gotchas
 
 - Always add `a.id < b.id` or `a.id != b.id` to avoid self-pairs and duplicates
 - Self-joins on large tables are expensive — window functions (LAG/LEAD) are preferred for consecutive row comparisons
 - For hierarchies deeper than 2 levels, use Recursive CTEs
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 16-A: Many-to-many self-join causes cartesian explosion
+### Edge 16-A: Many-to-many self-join causes cartesian explosion
 
 **Problem:**
 
@@ -86,7 +85,7 @@ WHERE r1.referred_id < r2.referred_id   -- only keep pairs where A < B (lexicogr
 -- Alternative: aggregate referred users per referrer into an array, then unnest and pair
 ```
 
-#### Edge 16-B: Self join for "employee earns more than manager" breaks for CEO (NULL manager)
+### Edge 16-B: Self join for "employee earns more than manager" breaks for CEO (NULL manager)
 
 **Problem:**
 
@@ -129,9 +128,9 @@ LEFT JOIN employees m ON e.manager_id = m.emp_id;
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 Self-join for "trades within 5 minutes of each other":
 

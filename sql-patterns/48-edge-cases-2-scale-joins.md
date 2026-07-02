@@ -1,12 +1,12 @@
-<!-- Part of sql-patterns: Edge Cases Part 2 + At Scale — JOINs -->
+<!-- sql-patterns: Edge Cases Part 2 + At Scale — JOINs -->
 
-## Edge Cases Part 2 + At Scale — JOINs
+# Edge Cases Part 2 + At Scale — JOINs
 
-### Why joins break at scale
+## Why joins break at scale
 
 Joins are where row counts unexpectedly grow, estimates drift, and memory pressure appears. The SQL may be logically correct while the physical work is much larger than expected.
 
-### Failure Mechanism
+## Failure Mechanism
 
 ```sql
 SELECT
@@ -19,7 +19,7 @@ JOIN users u
 
 If both inputs are large, the database must match rows by `user_id`. When the join key is not selective, not indexed, or badly skewed, the join can dominate the whole query.
 
-### Code-Level Fix
+## Code-Level Fix
 
 Filter, project, and validate cardinality before the join.
 
@@ -43,7 +43,7 @@ LEFT JOIN deduped_users u
     ON t.user_id = u.user_id;
 ```
 
-### System-Level Fix
+## System-Level Fix
 
 - Ensure the dimension join key is unique.
 - Add access paths on repeated large join keys.
@@ -51,7 +51,7 @@ LEFT JOIN deduped_users u
 - Maintain denormalized reporting tables for extremely common joins.
 - Track key skew so one dominant value does not control runtime.
 
-### Gotchas
+## Gotchas
 
 - A `LEFT JOIN` followed by `WHERE right_table.col = ...` becomes an inner join.
 - A many-to-many join multiplies rows even when every individual key exists.

@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Late-Arriving Data: Offline-First Mobile Transactions -->
+
 # Late-Arriving Data: Offline-First Mobile Transactions
 
 ![Domain: Data Engineering](https://img.shields.io/badge/Domain-Data%20Engineering-blue)

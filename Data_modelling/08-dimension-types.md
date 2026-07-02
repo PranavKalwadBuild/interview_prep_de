@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: All 6 Dimension Types -->
+<!-- data-modelling-patterns: All 6 Dimension Types -->
 
 # Dimension Table Types
 

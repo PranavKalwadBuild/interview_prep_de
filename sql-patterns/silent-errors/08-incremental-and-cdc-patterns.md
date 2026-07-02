@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Incremental and CDC Patterns -->
+<!-- sql-patterns: Silent Errors — Incremental and CDC Patterns -->
 
 # Silent Errors — Incremental and CDC Patterns
 

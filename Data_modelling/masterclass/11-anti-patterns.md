@@ -1,6 +1,8 @@
-## 11. Anti-Patterns with Autopsy
+<!-- data-modelling-patterns: Anti-Patterns with Autopsy -->
 
-### Anti-Pattern 1: The God Fact Table
+# Anti-Patterns with Autopsy
+
+## Anti-Pattern 1: The God Fact Table
 
 **What it is**: A single fact table that combines multiple business processes at different grains — e.g., a table that has one row per order line but also includes columns for the order header's shipping method, the customer's lifetime order count, the warehouse's current inventory for the ordered SKU, and the marketing campaign that drove the session.
 
@@ -20,7 +22,7 @@
 
 **The fix**: Never put dimension attributes into the fact table. Join at query time or build a pre-computed OBT as a separate layer built intentionally from properly governed dimensions.
 
-### Anti-Pattern 2: Over-Normalized Analytics Models (The 12-Table Join Problem)
+## Anti-Pattern 2: Over-Normalized Analytics Models (The 12-Table Join Problem)
 
 **What it is**: Applying OLTP normalization principles to analytics models. A query to answer "revenue by product category" requires joining through 12 tables because every attribute is in its own normalized table.
 
@@ -50,7 +52,7 @@ In a columnar warehouse, each join is a hash join requiring full scans of both s
 
 **The fix**: Dimension tables in analytics must be intentionally denormalized. The `product_category` hierarchy should be a single row in `dim_product` with `category_name`, `subcategory_name`, `department_name` all present — even if this "violates" normalization. Analytics models are read-many, write-once. Normalization's purpose (update anomaly prevention) does not apply to the analytics layer.
 
-### Anti-Pattern 3: Missing SCD Handling (Silent Data Corruption)
+## Anti-Pattern 3: Missing SCD Handling (Silent Data Corruption)
 
 **What it is**: Dimensions that change over time are treated as Type 1 (overwrite) when the business actually needs Type 2 (history). The corruption is silent — queries return wrong answers but no error is thrown.
 
@@ -62,7 +64,7 @@ In a columnar warehouse, each join is a hash join requiring full scans of both s
 
 **The fix**: Before modeling any dimension, answer: "If this attribute changes, do we ever need to know its historical value in the context of a past fact?" If yes, it requires Type 2. The engineering cost of Type 2 is real but recoverable. The cost of discovering missing SCD handling after 18 months of corrupted reports is not.
 
-### Anti-Pattern 4: Sparse Fact Tables
+## Anti-Pattern 4: Sparse Fact Tables
 
 **What it is**: A single fact table that attempts to represent multiple business processes with incompatible grains, resulting in a table where most columns are NULL for most rows.
 
@@ -78,7 +80,7 @@ In a columnar warehouse, each join is a hash join requiring full scans of both s
 
 **The fix**: One fact table per business process. `fact_loan_origination`, `fact_payment`, `fact_fee_accrual`, `fact_charge_off` — each with the columns appropriate to their grain and process. A unified `fact_financial_events` OBT is acceptable as a final reporting layer built from the properly structured per-process facts, but only if built intentionally with documented NULL semantics.
 
-### Anti-Pattern 5: Premature Aggregation (Losing Grain Before You Need It)
+## Anti-Pattern 5: Premature Aggregation (Losing Grain Before You Need It)
 
 **What it is**: Aggregating data to a summary grain during the ELT process before storing it in the warehouse, discarding the raw grain.
 

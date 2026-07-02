@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: NULL Handling Fundamentals Part 1 — 3VL, Boolean Logic, Arithmetic, IS NULL, COALESCE -->
-<!-- Source: sql_patterns.md lines 693–914 -->
+<!-- sql-patterns: NULL Handling Fundamentals Part 1 — 3VL, Boolean Logic, Arithmetic, IS NULL, COALESCE -->
 
-### I. NULL Handling — Complete Fundamentals
+# NULL Handling — Complete Fundamentals
 
 `NULL` means **unknown** or **missing**. It is not zero, not an empty string, not false — it is the **absence of a value**. NULL bugs are silent: wrong queries run without errors but return incorrect results.
 
 ---
 
-#### I-1. Three-Valued Logic (3VL)
+## I-1. Three-Valued Logic (3VL)
 
 SQL uses **three-valued logic**: TRUE, FALSE, and **UNKNOWN**. Any comparison involving NULL produces UNKNOWN — never TRUE or FALSE.
 
@@ -98,7 +97,7 @@ WHERE kyc_status = 'APPROVED' OR region = 'MUMBAI'
 -- If kyc_status = 'APPROVED', the row is included even if region IS NULL
 ---
 
-#### I-3. NULL in Arithmetic
+## I-3. NULL in Arithmetic
 
 **Any arithmetic operation on NULL produces NULL:**
 
@@ -155,7 +154,7 @@ CASE
 END
 ---
 
-#### I-5. COALESCE — Return First Non-NULL
+## I-5. COALESCE — Return First Non-NULL
 
 `COALESCE(expr1, expr2, ..., exprN)` returns the first argument that is not NULL. Short-circuits — stops evaluating once a non-NULL is found.
 
@@ -209,7 +208,7 @@ FROM monthly_revenue;
 -- NULLIF also guards against 0 prior revenue (new product launches)
 ---
 
-#### I-7. IS DISTINCT FROM / IS NOT DISTINCT FROM
+## I-7. IS DISTINCT FROM / IS NOT DISTINCT FROM
 
 `IS DISTINCT FROM` is a **NULL-safe equality check**. Unlike `=`, it never returns UNKNOWN — it always returns TRUE or FALSE, treating NULL as a concrete value equal to itself.
 

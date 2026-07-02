@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Data Modeling Masterclass: Deep Technical Reference -->
+
 # Data Modeling Masterclass: Deep Technical Reference
 
 > A practitioner's reference covering schema design, scale mechanics, incremental patterns, and failure modes across six industry verticals.

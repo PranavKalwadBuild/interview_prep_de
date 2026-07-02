@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Query Plans and EXPLAIN -->
+<!-- sql-patterns: Query Plans and EXPLAIN -->
 
 # Query Plans and EXPLAIN
 

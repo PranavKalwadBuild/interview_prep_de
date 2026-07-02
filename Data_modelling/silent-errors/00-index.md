@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors in Data Modelling and Pipeline Architecture — Index -->
+
 <!-- Part of Data_modelling: Silent Errors — Navigation Index -->
 
 # Silent Errors in Data Modelling and Pipeline Architecture — Index

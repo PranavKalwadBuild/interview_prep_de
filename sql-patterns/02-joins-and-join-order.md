@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: JOINs — Types, Join Order, and Which Table Goes Left -->
-<!-- Source: sql_patterns.md lines 253–545 -->
+<!-- sql-patterns: JOINs — Types, Join Order, and Which Table Goes Left -->
 
-### E. JOINs
+# E. JOINs
 
 JOINs combine rows from two or more tables based on a related column.
 

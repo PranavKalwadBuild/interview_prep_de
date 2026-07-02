@@ -1,8 +1,8 @@
-<!-- Part of sql-patterns: Date Functions — ANSI-first date and timestamp handling -->
+<!-- sql-patterns: Date Functions — ANSI-first date and timestamp handling -->
 
-## M. Date Functions & Transformations
+# M. Date Functions & Transformations
 
-### Why dates are hard in SQL
+## Why dates are hard in SQL
 
 Date logic is where otherwise portable SQL usually starts to drift. The safest interview and production habit is to express the idea in modern ANSI SQL first:
 
@@ -14,7 +14,7 @@ Date logic is where otherwise portable SQL usually starts to drift. The safest i
 
 ---
 
-### A. Current Date and Time
+## A. Current Date and Time
 
 ```sql
 SELECT
@@ -30,7 +30,7 @@ SELECT
 
 ---
 
-### B. Extracting Parts
+## B. Extracting Parts
 
 `EXTRACT` is the most portable way to pull date parts.
 
@@ -57,7 +57,7 @@ WHERE executed_at >= TIMESTAMP '2025-01-01 00:00:00'
 
 ---
 
-### C. Date Truncation and Period Starts
+## C. Date Truncation and Period Starts
 
 Modern ANSI SQL does not define one universally implemented `DATE_TRUNC` function. For portability, write period boundaries as ranges. When you need a period-start value, use PostgreSQL/MySQL fallbacks.
 
@@ -93,7 +93,7 @@ FROM trades;
 
 ---
 
-### D. Date Arithmetic
+## D. Date Arithmetic
 
 ANSI SQL interval syntax is the cleanest default for adding or subtracting time.
 
@@ -133,7 +133,7 @@ FROM trades;
 
 ---
 
-### E. Date Difference
+## E. Date Difference
 
 
 **PostgreSQL**
@@ -155,7 +155,7 @@ FROM events;
 
 ---
 
-### F. Formatting Dates as Strings
+## F. Formatting Dates as Strings
 
 Formatting should usually happen at the presentation layer. In SQL, keep dates typed for joins, filtering, sorting, and grouping.
 
@@ -207,7 +207,7 @@ FROM trades;
 
 ---
 
-### G. Parsing Strings into Dates
+## G. Parsing Strings into Dates
 
 Use `CAST` for ISO-formatted strings. For non-ISO formats, use PostgreSQL/MySQL parsing functions and validate failed parses explicitly.
 

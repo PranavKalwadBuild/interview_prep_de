@@ -1,6 +1,8 @@
-## 2. Healthcare
+<!-- data-modelling-patterns: Healthcare -->
 
-### When to Use This Design
+# Healthcare
+
+## When to Use This Design
 
 Healthcare data modeling is driven by questions that span both clinical and administrative domains:
 
@@ -11,9 +13,9 @@ Healthcare data modeling is driven by questions that span both clinical and admi
 
 The critical design constraint absent from every other domain here: **healthcare data has legal definitions of "correct" that change over time**. A diagnosis code can be corrected retroactively. A lab result can be amended. The model must represent not only what was true in the clinical world (valid time) but also what the system believed at any given moment (transaction time). This is bi-temporal modeling, and it is not optional in healthcare.
 
-### The Schema
+## The Schema
 
-#### Patient Dimension
+### Patient Dimension
 
 ```sql
 CREATE TABLE dim_patient (
@@ -64,7 +66,7 @@ AS (facility_id VARCHAR) RETURNS BOOLEAN ->
 ALTER TABLE dim_patient ADD ROW ACCESS POLICY patient_row_policy ON (facility_id);
 ```
 
-#### Encounter Fact (Clinical Events)
+### Encounter Fact (Clinical Events)
 
 An encounter is the fundamental unit of care — an office visit, an ED visit, a hospitalization. Its grain is one row per encounter per patient. The temptation is to denormalize all diagnoses and procedures into the encounter row as arrays. This makes "patients with diagnosis code X" queries require array unnesting, which is a full scan regardless of indexes.
 
@@ -98,7 +100,7 @@ PARTITION BY (admit_date_key)
 CLUSTER BY (patient_key, encounter_type, facility_id);
 ```
 
-#### Diagnosis, Procedure, Medication — Separate Tables
+### Diagnosis, Procedure, Medication — Separate Tables
 
 These are NOT columns on the encounter. They are child facts.
 
@@ -179,7 +181,7 @@ PARTITION BY (order_date_key)
 CLUSTER BY (patient_key, ndc_code);
 ```
 
-#### Bi-Temporal Modeling: Valid Time vs Transaction Time
+### Bi-Temporal Modeling: Valid Time vs Transaction Time
 
 This is where healthcare diverges sharply from other domains. Consider this scenario:
 
@@ -205,7 +207,7 @@ LIMIT 1;
 
 This query returns the March 1 version of the diagnosis — J06.9 — as it was known on March 7, before the correction was entered.
 
-#### HIPAA-Adjacent Audit Trail
+### HIPAA-Adjacent Audit Trail
 
 Every read and write access to PHI must be auditable. This is not a data model concern for analytics workloads — it is a platform concern (Snowflake access history, BigQuery data access logs, Databricks audit logs). However, the analytics warehouse must carry a separate audit dimension for data changes that are clinically significant:
 
@@ -227,7 +229,7 @@ PARTITION BY DATE(changed_at)
 CLUSTER BY (table_name, record_key);
 ```
 
-### The Hard Problems
+## The Hard Problems
 
 **Sparse Columns Across Specialties**: A cardiology encounter has different clinical attributes than an oncology encounter. If you try to represent all specialty-specific attributes in a single `fact_encounter`, you get a table with 300 columns where any given row has 80% NULLs. The solution is an **entity-attribute-value (EAV) extension table** for specialty-specific clinical observations, combined with a structured `fact_observation` table:
 
@@ -263,7 +265,7 @@ Using `loinc_code` as the observation type identifier means any new lab test or 
 
 **Late-Arriving Lab Results**: A lab specimen collected during an encounter on Monday may not have results finalized until Wednesday. The encounter is closed. The result arrives as a new row in `fact_observation` with `valid_from` = Monday (specimen collection time) and `recorded_at` = Wednesday (when the lab transmitted). Your incremental loads that run nightly will correctly insert Wednesday's new records. The complication is that any pre-computed aggregate that was materialized on Tuesday ("all observations for encounters closed today") will be stale — it will not include Wednesday's lab results that are clinically associated with Tuesday's encounters. The solution is a **watermark-based processing pattern**: never materialize aggregates with a cutoff date of "today." Use a configurable lag (e.g., results are typically final within 72 hours) and set the aggregate materialization cutoff to `today - 3 days`.
 
-### Scale Mechanics
+## Scale Mechanics
 
 Large healthcare systems (regional networks, national payers) accumulate 100M–500M encounter records over a 10-year retention window. The `fact_observation` table grows faster — a single inpatient stay may generate 500+ observations.
 

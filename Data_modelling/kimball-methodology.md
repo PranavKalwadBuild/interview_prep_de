@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Kimball Dimensional Modelling — Complete Methodology Reference -->
+
 # Kimball Dimensional Modelling — Complete Methodology Reference
 
 > **What this file covers:** The Kimball methodology concepts NOT covered in the numbered files.

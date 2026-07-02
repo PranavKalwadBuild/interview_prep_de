@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: SQL Basics — Data Types, DDL, DML, SELECT Fundamentals -->
-<!-- Source: sql_patterns.md lines 79–252 -->
+<!-- sql-patterns: SQL Basics — Data Types, DDL, DML, SELECT Fundamentals -->
 
-# Part 1 — Foundations
+# Foundations
 
 ---
 

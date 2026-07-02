@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Sessionization Pattern -->
-<!-- Source: sql_patterns.md lines 4108–4383 -->
+<!-- sql-patterns: Sessionization Pattern -->
 
-## 6. Sessionization
+# Sessionization
 
-### What it solves
+## What it solves
 
 Group user activity events into "sessions" — a session ends when there is a gap of more than N minutes between events.
 
-### Keywords to spot
+## Keywords to spot
 
 > "session", "visit", "within X minutes of each other", "idle timeout",
 > "group activity events", "how long did the session last",
@@ -15,7 +14,7 @@ Group user activity events into "sessions" — a session ends when there is a ga
 > "burst of activity", "episode", "interaction window", "bounce",
 > "restart after gap", "new visit", "activity cluster", "conversation thread"
 
-### Business Context
+## Business Context
 
 - **Product Analytics:** Group app events into sessions (30-min inactivity = new session); compute session duration, events per session, and bounce rate (single-event sessions)
 - **E-commerce:** Group page views into shopping sessions; sessions per user per day; detect "window shoppers" (many sessions, no purchase) vs "decisive buyers" (1 session, purchase)
@@ -24,7 +23,7 @@ Group user activity events into "sessions" — a session ends when there is a ga
 - **Fintech:** Group rapid-fire trades by the same user within 60 seconds (algorithmic trading detection); identify "panic selling" sessions where a user places multiple sells in a short window
 - **Streaming/Media:** Group content play events into viewing sessions; identify binge sessions (> 3 episodes back-to-back)
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Business: group user app events into sessions (30-min inactivity = new session)
@@ -65,14 +64,14 @@ FROM with_session_id
 GROUP BY user_id, session_id;
 ```
 
-### Gotchas
+## Gotchas
 
 - Sessionization is gap-and-islands applied to time gaps — the only difference is the break condition uses a time threshold instead of a value condition
 - Single-event sessions are valid (duration = 0)
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 6-A: Multiple events at the exact same timestamp
+### Edge 6-A: Multiple events at the exact same timestamp
 
 **Problem:**
 
@@ -97,7 +96,7 @@ LAG(event_at) OVER (PARTITION BY user_id ORDER BY event_at, event_id)
 -- The gap between them = 0 seconds < 30 minutes → same session (correct)
 ```
 
-#### Edge 6-B: Session spanning midnight — date-based aggregation breaks
+### Edge 6-B: Session spanning midnight — date-based aggregation breaks
 
 **Problem:**
 
@@ -135,7 +134,7 @@ ORDER BY activity_date;
 -- accept that one session can contribute to two calendar days.
 ```
 
-#### Edge 6-C: Very long gap at the end of data — open sessions
+### Edge 6-C: Very long gap at the end of data — open sessions
 
 **Problem:**
 

@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: Load Strategies, Batch vs Micro-Batch vs Streaming -->
+<!-- data-modelling-patterns: Load Strategies, Batch vs Micro-Batch vs Streaming -->
 
 # Load Strategies and Processing Patterns
 

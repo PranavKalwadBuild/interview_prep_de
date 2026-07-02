@@ -1,3 +1,5 @@
+<!-- python-patterns: End‑to‑End Retail Data Modeling with OOP (Pythonic) -->
+
 # End‑to‑End Retail Data Modeling with OOP (Pythonic)
 
 This document presents a complete, object‑oriented model of a typical retail data warehouse (star schema) using modern Python best practices. The model covers:

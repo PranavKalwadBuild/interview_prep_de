@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Schema Evolution in Event-Driven Pipelines -->
+
 # Schema Evolution in Event-Driven Pipelines
 
 > **Domain:** Data Engineering — Event Bus Ingestion

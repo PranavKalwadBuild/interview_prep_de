@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: 14 — Zero-Downtime Live Data Warehouse Migration -->
+
 # 14 — Zero-Downtime Live Data Warehouse Migration
 
 ![difficulty: expert](https://img.shields.io/badge/difficulty-expert-red)

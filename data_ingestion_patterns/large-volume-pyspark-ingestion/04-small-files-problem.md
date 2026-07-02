@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 04 — The Small Files Problem -->
+
 # Scenario 04 — The Small Files Problem
 
 ## The Problem Statement

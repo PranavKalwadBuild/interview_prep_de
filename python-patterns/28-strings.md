@@ -1,3 +1,5 @@
+<!-- python-patterns: Strings in Python -->
+
 # Strings in Python
 
 ## Why Strings Matter

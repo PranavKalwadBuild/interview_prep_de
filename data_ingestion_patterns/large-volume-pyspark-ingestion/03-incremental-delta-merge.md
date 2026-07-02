@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 03 — Incremental Delta Merge at Scale -->
+
 # Scenario 03 — Incremental Delta Merge at Scale
 
 ## The Problem Statement

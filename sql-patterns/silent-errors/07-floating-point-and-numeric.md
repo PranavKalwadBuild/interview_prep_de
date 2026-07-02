@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Floating Point and Numeric Precision -->
+<!-- sql-patterns: Silent Errors — Floating Point and Numeric Precision -->
 
 # Silent Errors — Floating Point and Numeric Precision
 

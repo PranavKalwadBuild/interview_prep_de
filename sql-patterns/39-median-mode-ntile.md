@@ -1,18 +1,17 @@
-<!-- Part of sql-patterns: Median, Mode, and NTILE Bucketing -->
-<!-- Source: sql_patterns.md lines 10112–10373 -->
+<!-- sql-patterns: Median, Mode, and NTILE Bucketing -->
 
-## 26. Median & Mode
+# Median & Mode
 
-### What it solves
+## What it solves
 
 Find the middle value (median) or most frequent value (mode) of a distribution.
 
-### Keywords to spot
+## Keywords to spot
 
 > "most common", "most frequent", "mode", "median", "middle value",
 > "typical", "most popular"
 
-### Boilerplate — Mode
+## Boilerplate — Mode
 
 ```sql
 -- Most common trading pair overall
@@ -36,9 +35,9 @@ SELECT user_id, trading_pair, freq
 FROM ranked WHERE rnk = 1;
 ```
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 26-A: Median with even number of rows — two middle values
+### Edge 26-A: Median with even number of rows — two middle values
 
 **Problem:**
 
@@ -94,7 +93,7 @@ WHERE rn IN (
 -- FLOOR and CEIL of different values when total is even → selects two middle rows, averages them
 ```
 
-#### Edge 26-B: Multiple modes — which one to return?
+### Edge 26-B: Multiple modes — which one to return?
 
 **Problem:**
 

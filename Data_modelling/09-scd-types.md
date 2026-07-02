@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: SCD Types 0 through 6 -->
+<!-- data-modelling-patterns: SCD Types 0 through 6 -->
 
 # Slowly Changing Dimensions (SCD Types 0–6)
 

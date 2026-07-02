@@ -1,19 +1,19 @@
-<!-- Part of sql-patterns: Recursive CTEs and Hierarchies -->
+<!-- sql-patterns: Recursive CTEs and Hierarchies -->
 
-## 17. Recursive CTEs (Hierarchies)
+# Recursive CTEs (Hierarchies)
 
-### What it solves
+## What it solves
 
 Recursive CTEs traverse tree-like relationships stored in ordinary relational tables: org charts, category trees, bill of materials, ownership chains, and dependency graphs.
 
-### Keywords to spot
+## Keywords to spot
 
 > "hierarchy", "tree", "ancestors", "descendants", "all levels",
 > "org chart", "category path", "all subordinates", "path from root",
 > "depth", "lineage", "bill of materials", "roll up to",
 > "recursive relationship", "transitive closure"
 
-### Business Context
+## Business Context
 
 - **HR:** Find every employee under a manager; compute salary budget for an org subtree.
 - **E-commerce:** Build category breadcrumbs and retrieve all subcategories below a node.
@@ -21,7 +21,7 @@ Recursive CTEs traverse tree-like relationships stored in ordinary relational ta
 - **Finance:** Roll accounts up through legal-entity or cost-centre hierarchies.
 - **Manufacturing:** Expand a bill of materials into all required components.
 
-### ANSI-first boilerplate
+## ANSI-first boilerplate
 
 ```sql
 -- employees(emp_id, emp_name, manager_id)
@@ -53,7 +53,7 @@ FROM org_tree
 ORDER BY depth, emp_name;
 ```
 
-### Building a readable path
+## Building a readable path
 
 ANSI SQL supports string concatenation with `||`, though implementations vary. Use `CAST` rather than PostgreSQL's `::` shorthand in portable examples.
 
@@ -91,7 +91,7 @@ FROM org_tree;
 CONCAT(ot.path, ' > ', e.emp_name)
 ```
 
-### Gotchas
+## Gotchas
 
 - The anchor query defines the starting node set. If it is too broad, recursion multiplies quickly.
 - `UNION ALL` is usually correct. `UNION` can hide duplicate paths and adds expensive duplicate elimination at every step.
@@ -99,9 +99,9 @@ CONCAT(ot.path, ' > ', e.emp_name)
 - Recursive CTEs are iterative by nature. Each level depends on the previous level, so very deep trees can be slow.
 - A tree has one parent per child. If a node can have multiple parents, you are traversing a graph and must expect duplicate paths.
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 17-A: Circular references cause infinite recursion
+### Edge 17-A: Circular references cause infinite recursion
 
 **Problem:** Bad hierarchy data can contain a cycle such as `A -> B -> C -> A`. Without a guard, recursion continues until the database stops it or the query exhausts resources.
 
@@ -184,7 +184,7 @@ SELECT *
 FROM org;
 ```
 
-#### Edge 17-B: Wide or deep trees degrade quickly
+### Edge 17-B: Wide or deep trees degrade quickly
 
 **Problem:** Each recursive step joins the current frontier back to the base table. A balanced tree with depth 20 still needs 20 iterations. A linked-list-shaped hierarchy with 100,000 levels is usually the wrong shape for recursive querying.
 
@@ -231,7 +231,7 @@ FROM employees_with_path
 WHERE path LIKE '/1/5/%';
 ```
 
-### At Scale
+## At Scale
 
 Recursive CTEs are excellent for small to moderate hierarchies. For frequently queried or very large hierarchies, treat recursion as an ETL step and store the result.
 

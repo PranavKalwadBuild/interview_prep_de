@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors — Fact Table Silent Errors -->
+
 <!-- Part of Data_modelling: Silent Errors — Fact Table Silent Errors -->
 
 # Silent Errors — Fact Table Silent Errors

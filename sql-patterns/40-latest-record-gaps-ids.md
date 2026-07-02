@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Latest Record per Entity (Point-in-Time) and Gaps in Sequential IDs -->
-<!-- Source: sql_patterns.md lines 10374–10796 -->
+<!-- sql-patterns: Latest Record per Entity (Point-in-Time) and Gaps in Sequential IDs -->
 
-## 28. Latest Record per Entity (Point-in-Time)
+# Latest Record per Entity (Point-in-Time)
 
-### What it solves
+## What it solves
 
 A very common real-world pattern: get the current/latest state of each entity (user, account, order).
 
-### Keywords to spot
+## Keywords to spot
 
 > "current", "latest", "most recent", "active",
 > "last known", "as of now", "current status",
@@ -15,7 +14,7 @@ A very common real-world pattern: get the current/latest state of each entity (u
 > "what is the user's current", "most recent non-null",
 > "last update per", "freshest record"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Current KYC/compliance status of each user (onboarding gating); latest price of each asset for portfolio valuation; most recent account balance per user
 - **E-commerce:** Most recent order status per order ID (customer service lookup); latest product price for display; most recent address on file per customer for shipping
@@ -23,7 +22,7 @@ A very common real-world pattern: get the current/latest state of each entity (u
 - **Data Engineering:** Latest ingested record per entity in a CDC pipeline (Golden Record); most recent schema version per table in a schema registry; latest partition metadata per table
 - **Healthcare:** Current medication per patient (active prescriptions); most recent lab result per test type per patient
 
-### Four equivalent methods
+## Four equivalent methods
 
 ```sql
 -- Method 1: ROW_NUMBER (most flexible)
@@ -53,7 +52,7 @@ WHERE u2.user_id IS NULL;
 SELECT * FROM user_kyc_status WHERE is_current = TRUE;
 ```
 
-### Edge Cases
+## Edge Cases
 
 **Fix:**
 
@@ -86,7 +85,7 @@ CROSS JOIN (SELECT MIN(loan_amount) AS min_amount, MAX(loan_amount) AS max_amoun
 -- Divides the VALUE range equally; row counts per bucket will vary based on data distribution
 ```
 
-#### Edge 28-A: Multiple records with identical "latest" timestamp — non-deterministic
+### Edge 28-A: Multiple records with identical "latest" timestamp — non-deterministic
 
 This is the same issue as Edge 7-A but worth restating in the latest-record context:
 
@@ -110,7 +109,7 @@ ROW_NUMBER() OVER (
 -- This makes the dedup deterministic regardless of physical row order
 ```
 
-#### Edge 28-B: Using MAX(date) + self-join creates fan-out with duplicate max dates
+### Edge 28-B: Using MAX(date) + self-join creates fan-out with duplicate max dates
 
 **Problem:**
 
@@ -210,20 +209,20 @@ TBLPROPERTIES (
 
 ---
 
-## 29. Gaps in Sequential IDs
+# 29. Gaps in Sequential IDs
 
-### What it solves
+## What it solves
 
 Find missing values in a sequence (missing invoice numbers, missing trade IDs, missing dates).
 
-### Keywords to spot
+## Keywords to spot
 
 > "missing", "gap in sequence", "skipped IDs", "which numbers are absent",
 > "holes in the sequence",
 > "incomplete range", "dropped records", "audit trail gap",
 > "continuity check", "sequence break", "numbers not present in"
 
-### Business Context
+## Business Context
 
 - **Data Engineering:** Missing trade/event IDs in a batch → indicates rows dropped during ingestion (pipeline integrity check); gap in Kafka offset sequence → message loss detection
 - **Finance/Compliance:** Gaps in invoice or receipt numbering → audit red flag (revenue recognition risk); missing cheque numbers in a cheque series → potential fraud
@@ -231,7 +230,7 @@ Find missing values in a sequence (missing invoice numbers, missing trade IDs, m
 - **Healthcare:** Missing encounter IDs in a patient record range → records not transferred during migration; sequence gaps in prescription numbers → dispensing audit issue
 - **Any domain:** Verify that a sequence/auto-increment generator hasn't skipped values after a database restart or failover
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Find gaps in trade_id sequence
@@ -250,9 +249,9 @@ FROM ordered
 WHERE next_id - trade_id > 1;
 ```
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 29-A: Gap detection with generate_series assumes contiguous range
+### Edge 29-A: Gap detection with generate_series assumes contiguous range
 
 **Problem:**
 
@@ -288,7 +287,7 @@ ORDER BY gap_start;
 -- Returns ONLY the gap ranges — no generation of billions of rows
 ```
 
-#### Edge 29-B: Gaps in a non-integer or non-contiguous sequence
+### Edge 29-B: Gaps in a non-integer or non-contiguous sequence
 
 **Problem:**
 

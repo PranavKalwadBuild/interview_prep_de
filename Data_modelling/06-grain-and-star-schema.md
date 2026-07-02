@@ -1,6 +1,6 @@
-<!-- Part of data-modelling-patterns: Grain Definition, Star Schema, Snowflake Schema -->
+<!-- data-modelling-patterns: Grain Definition, Star Schema, Snowflake Schema -->
 
-# Part 3 — Dimensional Modelling (Kimball): Grain, Star, and Snowflake
+# Dimensional Modelling (Kimball): Grain, Star, and Snowflake
 
 ---
 

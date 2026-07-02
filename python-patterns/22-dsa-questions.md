@@ -1,3 +1,5 @@
+<!-- python-patterns: Extensive DSA Questions for Data Engineering Interviews -->
+
 # Extensive DSA Questions for Data Engineering Interviews
 
 ## Array & Hashing

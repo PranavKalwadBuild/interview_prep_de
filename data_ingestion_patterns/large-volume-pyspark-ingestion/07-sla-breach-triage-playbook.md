@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 07 — SLA Breach Triage Playbook -->
+
 # Scenario 07 — SLA Breach Triage Playbook
 
 ## The Problem Statement

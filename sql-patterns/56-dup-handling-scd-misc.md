@@ -1,9 +1,8 @@
-<!-- Part of sql-patterns: Duplicate Handling — Funnel through Anti-Join (36-M to 36-S) -->
-<!-- Source: sql_patterns.md lines 14686–14984 -->
+<!-- sql-patterns: Duplicate Handling — Funnel through Anti-Join (36-M to 36-S) -->
 
-### 36-M. Duplicates in Funnel Analysis
+# 36-M. Duplicates in Funnel Analysis
 
-#### Problem — Duplicate funnel step events inflate conversion counts and rates
+## Problem — Duplicate funnel step events inflate conversion counts and rates
 
 ```sql
 -- A user clicks "Add to Cart" twice (double-click). Both events land in the table.
@@ -48,9 +47,9 @@ WITH step_events AS (
 
 ---
 
-### 36-N. Duplicates in SCD Type 2
+# 36-N. Duplicates in SCD Type 2
 
-#### Problem — Multiple active rows for the same entity
+## Problem — Multiple active rows for the same entity
 
 ```sql
 -- SCD2 convention: exactly one row per entity with valid_to IS NULL (= current record).
@@ -102,9 +101,9 @@ WHERE surrogate_key IN (
 
 ---
 
-### 36-O. Duplicates in Conditional Aggregation / CASE WHEN
+# 36-O. Duplicates in Conditional Aggregation / CASE WHEN
 
-#### Problem — Duplicate rows inflate COUNT-based conditional aggregations
+## Problem — Duplicate rows inflate COUNT-based conditional aggregations
 
 ```sql
 -- Counting users by KYC status using conditional aggregation:
@@ -142,9 +141,9 @@ FROM orders;
 
 ---
 
-### 36-P. Duplicates in Self Joins
+# 36-P. Duplicates in Self Joins
 
-#### Problem 1 — Symmetric pairs: A→B and B→A both appear
+## Problem 1 — Symmetric pairs: A→B and B→A both appear
 
 ```sql
 -- Find all pairs of users who share a city:
@@ -159,7 +158,7 @@ FROM users a
 JOIN users b ON a.city = b.city AND a.user_id < b.user_id;  -- < eliminates symmetric pairs
 ```
 
-#### Problem 2 — Self join on a non-unique column fans out
+## Problem 2 — Self join on a non-unique column fans out
 
 ```sql
 -- Compare each employee to the average salary in their department using a self join:
@@ -182,16 +181,16 @@ GROUP BY a.emp_id, a.salary;
 
 ---
 
-### 36-Q. Duplicates in String Aggregation
+# 36-Q. Duplicates in String Aggregation
 
-#### Problem — STRING_AGG / LISTAGG produces repeated values
+## Problem — STRING_AGG / LISTAGG produces repeated values
 
 
 ---
 
-### 36-R. Duplicates in Set Operations
+# 36-R. Duplicates in Set Operations
 
-#### Problem — UNION vs UNION ALL: when deduplication is unintentional
+## Problem — UNION vs UNION ALL: when deduplication is unintentional
 
 ```sql
 -- Intent: combine two event tables, keep all rows including duplicates.
@@ -229,9 +228,9 @@ SELECT * FROM clean_web;
 
 ---
 
-### 36-S. Duplicates in Anti-Join
+# 36-S. Duplicates in Anti-Join
 
-#### Problem — Duplicates in the exclusion list cause unexpected behavior with NOT IN
+## Problem — Duplicates in the exclusion list cause unexpected behavior with NOT IN
 
 ```sql
 -- Find customers who have never placed an order.

@@ -1,21 +1,20 @@
-<!-- Part of sql-patterns: Pivoting and Unpivoting -->
-<!-- Source: sql_patterns.md lines 8432–8625 -->
+<!-- sql-patterns: Pivoting and Unpivoting -->
 
-## 18. Pivoting & Unpivoting
+# Pivoting & Unpivoting
 
-### What it solves
+## What it solves
 
 - **Pivot**: Turn row values into columns (rotate)
 - **Unpivot**: Turn columns into rows (reverse)
 
-### Keywords to spot
+## Keywords to spot
 > "pivot", "transpose", "turn rows into columns", "wide format",
 > "one column per category", "reshape", "column per month",
 > "cross-tab", "matrix format", "wide table", "rotate",
 > "rows to columns", "columns to rows", "normalise", "denormalise",
 > "spread across columns", "flatten"
 
-### Business Context
+## Business Context
 
 - **Fintech/Retail:** Show monthly revenue/volume with one column per month for a BI dashboard (cohort matrix); pivot trade type (BUY/SELL) from rows into side-by-side columns for comparison reports
 - **Analytics:** Convert a key-value attribute store (user_id, attribute, value) to a wide feature table for ML model input; unpivot a wide sales table back to long format for window functions
@@ -23,7 +22,7 @@
 - **Data Engineering:** Unpivot a wide report received from a finance system back to long format for aggregation; normalise a denormalised Excel export into a relational schema
 - **A/B Testing:** Pivot experiment metrics (metric_name, value) from long to wide so each metric has its own column per variant for easy statistical comparison
 
-### Boilerplate — Manual Pivot (CASE WHEN)
+## Boilerplate — Manual Pivot (CASE WHEN)
 
 ```sql
 -- Pivot: rows of (user_id, month, volume) → one column per month
@@ -36,7 +35,7 @@ FROM monthly_volume
 GROUP BY user_id;
 ```
 
-### Boilerplate — Unpivot (UNION ALL)
+## Boilerplate — Unpivot (UNION ALL)
 
 ```sql
 -- Unpivot: wide table → long table
@@ -47,15 +46,15 @@ UNION ALL
 SELECT user_id, 'mar_2024' AS month, mar_2024 AS volume FROM wide_table;
 ```
 
-### Gotchas
+## Gotchas
 
 - Manual pivot requires knowing all column values in advance (not dynamic)
 - Dynamic pivot requires stored procedures or application-layer code in most SQL dialects
 - For analytics, long (unpivoted) format is generally better for window functions and GROUP BY
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 18-A: ELSE 0 in SUM pivot hides NULLs; ELSE NULL in COUNT inflates them
+### Edge 18-A: ELSE 0 in SUM pivot hides NULLs; ELSE NULL in COUNT inflates them
 
 **Problem:**
 
@@ -79,7 +78,7 @@ SUM(CASE WHEN month = 'Jan' THEN revenue END) AS jan  -- NULL if no Jan rows for
 -- Then downstream consumers can distinguish NULL (no measurement) from 0 (actual zero revenue)
 ```
 
-#### Edge 18-B: Dynamic pivot — unknown number of categories
+### Edge 18-B: Dynamic pivot — unknown number of categories
 
 **Problem:**
 

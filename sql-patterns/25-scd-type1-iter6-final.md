@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: SCD Type 1 — Iterations 6-7, Final MERGE, Summary, Gotchas, Edge Cases, At Scale -->
-<!-- Source: sql_patterns.md lines 6393–6713 -->
+<!-- sql-patterns: SCD Type 1 — Iterations 6-7, Final MERGE, Summary, Gotchas, Edge Cases, At Scale -->
 
-### Iteration 6 — Schema Evolution (New Column Added to Source)
+# Iteration 6 — Schema Evolution (New Column Added to Source)
 
 **Problem:** Source adds a `phone` column that didn't exist before. The existing target table doesn't have it yet.
 
 **Two scenarios:**
 
-#### Scenario A — Column already added to target (DDL ran first), source sometimes sends NULL
+## Scenario A — Column already added to target (DDL ran first), source sometimes sends NULL
 
 ```sql
 -- Handle gracefully with COALESCE in the INSERT:
@@ -47,7 +46,7 @@ WHEN MATCHED
         t.deleted_at = NULL
 ```
 
-#### Scenario B — Backfill existing rows after column is added
+## Scenario B — Backfill existing rows after column is added
 
 ```sql
 -- After ALTER TABLE dim_customers ADD COLUMN phone VARCHAR:
@@ -61,7 +60,7 @@ WHERE phone IS NULL;
 
 ---
 
-### Iteration 7 — Deleted Record Reappeared
+# Iteration 7 — Deleted Record Reappeared
 
 **Problem:** `customer_id = 1001` was soft-deleted yesterday (`is_active = FALSE`, `deleted_at = 2026-05-19`). Today they reappear in the source (customer re-registered). The naive MERGE fires `WHEN MATCHED` because the key exists in both source and target — but if the customer's other fields (name, email, city) are unchanged, `IS DISTINCT FROM` detects no diff → `WHEN MATCHED` is skipped → the row stays soft-deleted. Customer is invisible to consumers. Silent bug.
 
@@ -91,7 +90,7 @@ WHEN MATCHED
 
 ---
 
-### Final MERGE — All Constraints Handled
+# Final MERGE — All Constraints Handled
 
 This is the production-grade SCD1 MERGE incorporating every iteration above:
 
@@ -150,7 +149,7 @@ WHEN NOT MATCHED BY SOURCE THEN
         t.deleted_at = CURRENT_TIMESTAMP;
 ```
 
-### Iteration summary
+# Iteration summary
 
 | Iteration | Problem solved | Key addition |
 |---|---|---|
@@ -163,14 +162,14 @@ WHEN NOT MATCHED BY SOURCE THEN
 | 6 | Schema evolution | `COALESCE` for new columns, backfill `UPDATE` |
 | 7 | Deleted record reappears | `OR t.is_active = FALSE` + reactivation in `UPDATE SET` |
 
-### Gotchas
+# Gotchas
 
 - The `updated_at` guard (Iteration 3) assumes the source timestamp is trustworthy. If the source system always re-stamps `updated_at = NOW()` on every export, drop the guard and rely solely on `IS DISTINCT FROM`.
 - Soft deletes require a discipline contract: every consumer query must filter `WHERE is_active = TRUE`, or build a view that does it automatically.
 
-### Edge Cases
+# Edge Cases
 
-#### Edge 13-A: Out-of-order events — step B happens before step A in timestamps
+## Edge 13-A: Out-of-order events — step B happens before step A in timestamps
 
 **Problem:**
 
@@ -197,7 +196,7 @@ COUNT(CASE WHEN kyc_seq > signup_seq THEN 1 END)
 -- If your events have a reliable sequence/event_id, use that instead of wall-clock time
 ```
 
-#### Edge 13-B: Same step completed multiple times — double-counting
+## Edge 13-B: Same step completed multiple times — double-counting
 
 **Problem:**
 
@@ -217,9 +216,9 @@ COUNT(CASE WHEN kyc_seq > signup_seq THEN 1 END)
 
 ---
 
-### At Scale
+# At Scale
 
-#### Failure Mechanism
+## Failure Mechanism
 
 The MAX(CASE WHEN ...) funnel requires **one full GROUP BY scan** of the events table. At 2B events for 100M users, this is a single-pass scan — reasonably efficient. The problem is:
 
@@ -227,10 +226,10 @@ The MAX(CASE WHEN ...) funnel requires **one full GROUP BY scan** of the events 
 - Ordered funnel (timestamp comparison) requires a **self-join** on the events table → N² risk
 - Per-cohort funnels with GROUPING SETS require multiple aggregation passes
 
-#### Code-Level Fix
+## Code-Level Fix
 
 
-#### System-Level Fix
+## System-Level Fix
 
 
 ---

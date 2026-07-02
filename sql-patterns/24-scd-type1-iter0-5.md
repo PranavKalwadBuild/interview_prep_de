@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: SCD Type 1 — Iterations 0 through 5 (Base MERGE through Hard/Soft Deletes) -->
-<!-- Source: sql_patterns.md lines 6073–6392 -->
+<!-- sql-patterns: SCD Type 1 — Iterations 0 through 5 (Base MERGE through Hard/Soft Deletes) -->
 
-## 13-A. SCD Type 1 — Logic with Iterations
+# 13-A. SCD Type 1 — Logic with Iterations
 
-### What it solves
+## What it solves
 
 SCD Type 1 = **overwrite**. When a source attribute changes, you simply update the target row in place. No history is kept — the old value is gone. Use it when the business only cares about the **current state** (e.g., current email address, current city).
 
-### When to use SCD Type 1 vs Type 2
+## When to use SCD Type 1 vs Type 2
 
 | | SCD 1 | SCD 2 |
 |---|---|---|
@@ -18,7 +17,7 @@ SCD Type 1 = **overwrite**. When a source attribute changes, you simply update t
 
 ---
 
-### Schema used across all iterations
+## Schema used across all iterations
 
 ```sql
 -- Source (staging layer — raw ingest from upstream system)

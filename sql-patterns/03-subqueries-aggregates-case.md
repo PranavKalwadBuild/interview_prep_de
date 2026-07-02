@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: Subqueries, CTEs, Aggregate Functions, and CASE WHEN -->
-<!-- Source: sql_patterns.md lines 546–692 -->
+<!-- sql-patterns: Subqueries, CTEs, Aggregate Functions, and CASE WHEN -->
 
-### F. Subqueries & CTEs
+# F. Subqueries & CTEs
 
 **Subquery** — a query nested inside another query.
 
@@ -74,7 +73,7 @@ SELECT * FROM org ORDER BY depth;
 
 ---
 
-### G. Aggregate Functions
+# G. Aggregate Functions
 
 Aggregate functions collapse multiple rows into a single value. Always used with `GROUP BY` (unless aggregating the entire table).
 
@@ -115,7 +114,7 @@ ORDER BY total_payroll DESC;
 
 ---
 
-### H. CASE WHEN
+# H. CASE WHEN
 
 `CASE WHEN` is SQL's if-else. It can appear in `SELECT`, `WHERE`, `GROUP BY`, `ORDER BY`, and inside aggregate functions.
 

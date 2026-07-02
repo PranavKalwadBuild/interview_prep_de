@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Set Operations — UNION, INTERSECT, EXCEPT -->
-<!-- Source: sql_patterns.md lines 9154–9375 -->
+<!-- sql-patterns: Set Operations — UNION, INTERSECT, EXCEPT -->
 
-## 21. Set Operations (UNION / INTERSECT / EXCEPT)
+# Set Operations (UNION / INTERSECT / EXCEPT)
 
-### What it solves
+## What it solves
 
 Combine results of multiple queries: union (all rows), intersection (common rows), difference (rows in A but not B).
 
-### Keywords to spot
+## Keywords to spot
 
 > "combine", "all records from both", "appear in both",
 > "in A but not B", "users who did X but not Y",
@@ -15,7 +14,7 @@ Combine results of multiple queries: union (all rows), intersection (common rows
 > "reconciliation", "delta between", "set difference", "overlap",
 > "common to both", "merge two sources", "stack tables", "union of"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Users who deposited but never traded (EXCEPT — winback campaign target); combine trade data from two brokers (UNION ALL) for a unified position report; users who appear in both fraud watchlist AND active traders (INTERSECT — urgent review queue)
 - **E-commerce:** Customers who browsed but never purchased (EXCEPT — retargeting list); products in catalogue but never ordered (EXCEPT — dead stock alert)
@@ -23,7 +22,7 @@ Combine results of multiple queries: union (all rows), intersection (common rows
 - **Marketing:** Users in segment A (high value) but not segment B (already emailed) for targeted outreach; INTERSECT to find users who qualify for multiple promotions simultaneously
 - **Compliance:** Find accounts present in transaction data but absent from KYC records (EXCEPT — onboarding gap); find users in two different sanction screening lists (UNION DISTINCT)
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- UNION ALL: combine (keep duplicates)
@@ -70,7 +69,7 @@ GROUP BY txn_id
 HAVING cnt > 1;  -- these txn_ids appear in both systems — investigate before summing
 ```
 
-#### Edge 21-B: EXCEPT / MINUS misses rows due to NULL treatment
+### Edge 21-B: EXCEPT / MINUS misses rows due to NULL treatment
 
 **Problem:**
 
@@ -110,7 +109,7 @@ WHERE NOT EXISTS (
 -- This is more explicit than EXCEPT and allows column-level control of NULL handling
 ```
 
-#### Edge 21-C: Column count / type mismatch in UNION
+### Edge 21-C: Column count / type mismatch in UNION
 
 **Problem:**
 

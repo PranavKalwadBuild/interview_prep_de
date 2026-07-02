@@ -1,3 +1,5 @@
+<!-- python-patterns: Python Errors and Exception Handling -->
+
 # Python Errors and Exception Handling
 
 ## Why Exception Handling Matters

@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Index -->
+<!-- sql-patterns: Silent Errors — Index -->
 
 # Silent Errors in SQL — Navigation Index
 

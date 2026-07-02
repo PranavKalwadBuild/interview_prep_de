@@ -1,8 +1,8 @@
-<!-- Part of sql-patterns: Physical Design Anti-Patterns and Cheat Sheet -->
+<!-- sql-patterns: Physical Design Anti-Patterns and Cheat Sheet -->
 
-## 35.7 Physical Design Anti-Patterns
+# 35.7 Physical Design Anti-Patterns
 
-### Anti-pattern 1: Partitioning by a unique identifier
+## Anti-pattern 1: Partitioning by a unique identifier
 
 ```sql
 -- Usually bad:
@@ -11,7 +11,7 @@
 
 This creates too many tiny partitions and high planning overhead. Use an index for point lookups.
 
-### Anti-pattern 2: Filtering with functions on key columns
+## Anti-pattern 2: Filtering with functions on key columns
 
 ```sql
 WHERE EXTRACT(YEAR FROM event_date) = 2025
@@ -24,11 +24,11 @@ WHERE event_date >= DATE '2025-01-01'
   AND event_date <  DATE '2026-01-01'
 ```
 
-### Anti-pattern 3: Designing for every query
+## Anti-pattern 3: Designing for every query
 
 Too many indexes, partitions, or ordering keys slow writes and increase maintenance. Optimize for the repeated expensive access patterns.
 
-### Anti-pattern 4: Ignoring skew
+## Anti-pattern 4: Ignoring skew
 
 A technically valid key can still be bad if one value dominates the data.
 
@@ -40,7 +40,7 @@ ORDER BY row_count DESC
 FETCH FIRST 20 ROWS ONLY;
 ```
 
-### PostgreSQL syntax reference
+## PostgreSQL syntax reference
 
 ```sql
 CREATE TABLE transactions (
@@ -57,7 +57,7 @@ CREATE INDEX idx_transactions_user_date
     ON transactions (user_id, event_date);
 ```
 
-### MySQL syntax reference
+## MySQL syntax reference
 
 ```sql
 CREATE TABLE transactions (
@@ -73,7 +73,7 @@ PARTITION BY RANGE COLUMNS (event_date) (
 );
 ```
 
-### Decision Cheat Sheet
+## Decision Cheat Sheet
 
 | Access pattern | Recommended design |
 |---|---|
@@ -84,7 +84,7 @@ PARTITION BY RANGE COLUMNS (event_date) (
 | Skewed key | Add time, pre-aggregate, or split large keys |
 | Free-text search | Use a purpose-built search strategy outside ordinary partitioning |
 
-### Verification Checklist
+## Verification Checklist
 
 - Does `EXPLAIN` show a selective access path or partition pruning?
 - Are estimated rows close to actual rows?

@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — NULL Semantics -->
+<!-- sql-patterns: Silent Errors — NULL Semantics -->
 
 # Silent Errors — NULL Semantics
 

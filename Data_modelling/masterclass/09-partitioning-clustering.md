@@ -1,6 +1,8 @@
-## 9. Partitioning and Clustering Strategy
+<!-- data-modelling-patterns: Partitioning and Clustering Strategy -->
 
-### How Query Patterns Drive Partition Key Selection
+# Partitioning and Clustering Strategy
+
+## How Query Patterns Drive Partition Key Selection
 
 The partition key should match the most common filter predicate in analytical queries — specifically, the column that, when filtered, eliminates the most data from consideration.
 
@@ -19,7 +21,7 @@ Query pattern                     → Partition key
 "Give me lab results for this patient" → partition by date, CLUSTER by patient_key
 ```
 
-### Cardinality Traps in Clustering
+## Cardinality Traps in Clustering
 
 In Snowflake, a clustering key of `(event_date, customer_id)` on a table where `customer_id` has 100M unique values produces poor co-location: rows for the same date/customer combination are spread across many micro-partitions because the customer ID space is too large to cluster effectively. The Snowflake automatic clustering service handles this, but manual clustering keys should observe:
 
@@ -29,7 +31,7 @@ In Snowflake, a clustering key of `(event_date, customer_id)` on a table where `
 
 In BigQuery, clustering is column-ordered, with the first column providing the strongest pruning. BigQuery supports up to 4 clustering columns. A common mistake is clustering on a column like `is_active BOOLEAN` — two distinct values means half the table is in each cluster bucket. No pruning occurs.
 
-### Platform-Specific Behavior
+## Platform-Specific Behavior
 
 | Concept | Snowflake | BigQuery | Redshift |
 |---------|-----------|----------|----------|

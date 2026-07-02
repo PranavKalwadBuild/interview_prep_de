@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Duplicate Handling — Root Causes + Window Functions, LAG/LEAD, Running Aggregates, FIRST/LAST, Gap/Islands -->
-<!-- Source: sql_patterns.md lines 14105–14388 -->
+<!-- sql-patterns: Duplicate Handling — Root Causes + Window Functions, LAG/LEAD, Running Aggregates, FIRST/LAST, Gap/Islands -->
 
-## 36. Duplicate Handling — Pattern-by-Pattern Deep Dive
+# Duplicate Handling — Pattern-by-Pattern Deep Dive
 
 Duplicates are the silent corrupting force in SQL analytics. Unlike NULLs, which propagate visibly through arithmetic and comparisons, duplicates pass through most queries undetected — inflating counts, distorting aggregations, and producing results that look correct but are wrong by 5%, 20%, or 10x. This section covers how duplicates manifest differently in each pattern and the precise fix for each.
 
 ---
 
-### Root Causes Cheat Sheet
+## Root Causes Cheat Sheet
 
 | Source | Mechanism | Typical Symptom |
 |---|---|---|
@@ -20,9 +19,9 @@ Duplicates are the silent corrupting force in SQL analytics. Unlike NULLs, which
 
 ---
 
-### 36-A. Duplicates in Window Functions — Ranking
+## 36-A. Duplicates in Window Functions — Ranking
 
-#### Problem 1 — Non-deterministic ROW_NUMBER due to tied ORDER BY
+### Problem 1 — Non-deterministic ROW_NUMBER due to tied ORDER BY
 
 ```sql
 -- WRONG: ORDER BY updated_at alone — two rows with the same updated_at get
@@ -47,7 +46,7 @@ WITH ranked AS (
 SELECT * FROM ranked WHERE rn = 1;
 ```
 
-#### Problem 2 — Duplicate rows inflate RANK / DENSE_RANK counts
+### Problem 2 — Duplicate rows inflate RANK / DENSE_RANK counts
 
 ```sql
 -- Source has duplicate rows (same user_id + score). RANK gives both rn=1.
@@ -67,9 +66,9 @@ SELECT * FROM ranked WHERE rnk <= 3;
 
 ---
 
-### 36-B. Duplicates in LAG / LEAD
+## 36-B. Duplicates in LAG / LEAD
 
-#### Problem — Duplicate timestamps make LAG return the wrong prior row
+### Problem — Duplicate timestamps make LAG return the wrong prior row
 
 ```sql
 -- A user has two events on 2024-03-15 (retry caused a duplicate).
@@ -92,7 +91,7 @@ lagged AS (
 SELECT * FROM lagged;
 ```
 
-#### Problem — LEAD skips over duplicates, producing a misleading "next" value
+### Problem — LEAD skips over duplicates, producing a misleading "next" value
 
 ```sql
 -- If a user has two identical status events (PENDING, PENDING), LEAD returns PENDING
@@ -115,9 +114,9 @@ FROM cleaned;
 
 ---
 
-### 36-C. Duplicates in Running Aggregates
+## 36-C. Duplicates in Running Aggregates
 
-#### Problem — Duplicate transactions inflate the running total
+### Problem — Duplicate transactions inflate the running total
 
 ```sql
 -- A payment webhook fires twice → two rows for the same payment_id.
@@ -155,16 +154,16 @@ FROM cleaned;
 
 ---
 
-### 36-D. Duplicates in FIRST_VALUE / LAST_VALUE
+## 36-D. Duplicates in FIRST_VALUE / LAST_VALUE
 
-#### Problem — Duplicates at the boundary make FIRST_VALUE non-deterministic
+### Problem — Duplicates at the boundary make FIRST_VALUE non-deterministic
 
 
 ---
 
-### 36-E. Duplicates in Gap and Islands
+## 36-E. Duplicates in Gap and Islands
 
-#### Problem — Duplicate dates shatter the island logic
+### Problem — Duplicate dates shatter the island logic
 
 ```sql
 -- The standard gap-and-island technique:
@@ -209,9 +208,9 @@ GROUP BY user_id, island_id;
 
 ---
 
-### 36-F. Duplicates in Sessionization
+## 36-F. Duplicates in Sessionization
 
-#### Problem — Duplicate events inflate session event count and corrupt session boundaries
+### Problem — Duplicate events inflate session event count and corrupt session boundaries
 
 
 ---

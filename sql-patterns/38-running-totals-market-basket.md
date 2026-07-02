@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Running Totals, Cumulative Metrics, and Market Basket / Co-occurrence -->
-<!-- Source: sql_patterns.md lines 9841–10111 -->
+<!-- sql-patterns: Running Totals, Cumulative Metrics, and Market Basket / Co-occurrence -->
 
-## 24. Running Totals & Cumulative Metrics
+# Running Totals & Cumulative Metrics
 
-### What it solves
+## What it solves
 
 Compute a metric that accumulates over time — running sum, running count, cumulative revenue.
 
-### Keywords to spot
+## Keywords to spot
 
 > "running total", "cumulative", "so far", "up to this date",
 > "year-to-date", "all previous records", "progressively",
@@ -15,7 +14,7 @@ Compute a metric that accumulates over time — running sum, running count, cumu
 
 *(See also Pattern 3 for the window function syntax)*
 
-### Boilerplate — Cumulative distinct users (new user growth curve)
+## Boilerplate — Cumulative distinct users (new user growth curve)
 
 ```sql
 -- How many unique users had traded by each date?
@@ -37,9 +36,9 @@ FROM daily_new_users
 ORDER BY first_trade_date;
 ```
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 24-A: Running total goes negative — need to floor at zero
+### Edge 24-A: Running total goes negative — need to floor at zero
 
 **Problem:**
 
@@ -193,9 +192,9 @@ HAVING COUNT(*) > 50
 ORDER BY co_count DESC;
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 Self-join for co-occurrence on 10M orders with average 10 items each:
 
@@ -204,7 +203,7 @@ Self-join for co-occurrence on 10M orders with average 10 items each:
 - At 100 bytes each: 45GB intermediate result
 - For orders with 100+ items (wholesale): single order produces 4,950 pairs → skew explosion
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 -- FIX: Use sparse co-occurrence matrix approach
@@ -231,7 +230,7 @@ ORDER BY co_count DESC LIMIT 1000;
 -- For product with 10K orders: array intersection = 10K+10K = 20K ops vs 100M row-join ops
 ```
 
-#### System-Level Fix
+### System-Level Fix
 
 ```sql
 -- Pre-compute co-occurrence matrix nightly

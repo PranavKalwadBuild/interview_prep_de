@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Rolling Window Aggregations -->
-<!-- Source: sql_patterns.md lines 4932–5194 -->
+<!-- sql-patterns: Rolling Window Aggregations -->
 
-## 9. Rolling Window Aggregations
+# Rolling Window Aggregations
 
-### What it solves
+## What it solves
 
 Compute aggregates over a sliding window of N rows or N time units (7-day moving average, 30-day rolling sum, etc.).
 
-### Keywords to spot
+## Keywords to spot
 
 > "7-day", "30-day", "rolling", "moving average", "trailing",
 > "last N days", "sliding window", "moving sum", "smoothed",
@@ -15,7 +14,7 @@ Compute aggregates over a sliding window of N rows or N time units (7-day moving
 > "week-over-week smoothed", "noise reduction", "baseline window",
 > "anomaly vs rolling baseline", "over the last N periods"
 
-### Business Context
+## Business Context
 
 - **Fintech:** 7-day rolling average trading volume per pair to smooth intraday noise; 30-day moving deposit total for AML anomaly detection (flag if today's deposit is 5× the rolling average)
 - **E-commerce:** 7-day rolling revenue per product to smooth weekday/weekend effects; rolling 30-day cart abandonment rate to detect checkout degradation
@@ -23,7 +22,7 @@ Compute aggregates over a sliding window of N rows or N time units (7-day moving
 - **Retail/CPG:** 4-week moving average sales to smooth seasonality for replenishment forecasting; rolling 13-week baseline for promotional lift measurement
 - **Fraud/Risk:** 7-day rolling average spend per card to detect sudden deviation (velocity check); 30-day rolling login count to flag dormant accounts that suddenly become active
 
-### Boilerplate — Row-based rolling window
+## Boilerplate — Row-based rolling window
 
 ```sql
 -- 7-day moving average price (last 7 rows)
@@ -44,7 +43,7 @@ SELECT
 FROM daily_prices;
 ```
 
-### Boilerplate — Time-based rolling window (RANGE)
+## Boilerplate — Time-based rolling window (RANGE)
 
 ```sql
 -- Rolling sum of deposits in the last 7 days for each user
@@ -75,15 +74,15 @@ JOIN base b2
 GROUP BY b1.user_id, b1.deposit_date;
 ```
 
-### Gotchas
+## Gotchas
 
 - `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` = 7 total rows (0-indexed offset)
 - `RANGE` frame with dates requires numeric representation (epoch) in most dialects
 - Rolling windows on sparse data (missing dates) need a date spine — see Pattern 11
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 9-A: ROWS frame with sparse / missing dates gives misleading "N-day" labels
+### Edge 9-A: ROWS frame with sparse / missing dates gives misleading "N-day" labels
 
 **Problem:**
 
@@ -128,7 +127,7 @@ FROM spine s LEFT JOIN daily_volumes d ON s.dt = d.txn_date;
 -- Now "7 rows" = "7 actual calendar days" — aligned
 ```
 
-#### Edge 9-B: Rolling average with RANGE on non-numeric/non-date ORDER BY
+### Edge 9-B: Rolling average with RANGE on non-numeric/non-date ORDER BY
 
 **Problem:**
 

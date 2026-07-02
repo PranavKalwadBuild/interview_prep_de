@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: SCD Type 2 — Iterations 4–7, Final Production SCD2, Audit Log Reconstruction -->
-<!-- Source: sql_patterns.md lines 7038–7361 -->
+<!-- sql-patterns: SCD Type 2 — Iterations 4–7, Final Production SCD2, Audit Log Reconstruction -->
 
-### Iteration 4 — Same Batch of Data Coming Again
+# Iteration 4 — Same Batch of Data Coming Again
 
 **Problem:** Pipeline retried. Staging is reloaded with the same data. Or `stg_customers` is populated with `INSERT INTO ... SELECT` without a prior TRUNCATE, producing duplicate rows per `customer_id`.
 
@@ -52,11 +51,11 @@ WHERE NOT EXISTS (
 
 ---
 
-### Iteration 5 — Hard Deletes vs Soft Deletes
+# Iteration 5 — Hard Deletes vs Soft Deletes
 
 When a customer disappears from the source extract, two options:
 
-#### Option A — Hard Delete (close the current row, leave history intact)
+## Option A — Hard Delete (close the current row, leave history intact)
 
 ```sql
 -- Expire rows for customers absent from this batch
@@ -71,7 +70,7 @@ This preserves all historical rows but closes the active one. The customer still
 
 **Risk:** Only valid when source is a **complete snapshot**. If source is a daily delta, absent customers are simply not in today's file — hard deleting them corrupts the dimension.
 
-#### Option B — Soft Delete (insert a new version with a deleted flag)
+## Option B — Soft Delete (insert a new version with a deleted flag)
 
 ```sql
 -- Add is_deleted column to dim_customers
@@ -109,7 +108,7 @@ WHERE d.is_current = FALSE
 
 ---
 
-### Iteration 6 — Schema Evolution (New Column Added)
+# Iteration 6 — Schema Evolution (New Column Added)
 
 **Problem:** Source adds a `phone` column. Target table doesn't have it yet. All existing active rows have no `phone` value.
 
@@ -171,7 +170,7 @@ WHERE NOT EXISTS (
 
 ---
 
-### Iteration 7 — Deleted Record Reappeared
+# Iteration 7 — Deleted Record Reappeared
 
 **Problem:** Customer 1001 was closed last month (no `is_current = TRUE` row, only historical rows). Customer re-registers and appears in source again.
 
@@ -313,7 +312,7 @@ WHERE NOT EXISTS (
 );
 ---
 
-### Reconstruct SCD2 from an audit log (bonus pattern)
+# Reconstruct SCD2 from an audit log (bonus pattern)
 
 When you're given a raw change log and asked to build the SCD2 table from scratch:
 

@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Large-Volume PySpark Ingestion — Index -->
+
 # Large-Volume PySpark Ingestion — Index
 
 ## The Anchor Problem

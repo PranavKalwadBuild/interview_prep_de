@@ -1,8 +1,8 @@
-<!-- Part of sql-patterns: Ordering, Distribution, and Key Choice -->
+<!-- sql-patterns: Ordering, Distribution, and Key Choice -->
 
-## 35.5 Ordering, Clustering, and Distribution
+# 35.5 Ordering, Clustering, and Distribution
 
-### Ordering / clustering
+## Ordering / clustering
 
 Ordering stores nearby key values near each other physically. It helps range predicates and ordered window queries because the database can read fewer row ranges or sort less data.
 
@@ -15,7 +15,7 @@ WHERE event_date >= DATE '2025-01-01'
   AND user_id = 42;
 ```
 
-### Compound key order matters
+## Compound key order matters
 
 For a compound access path on `(event_date, user_id, status)`, predicates on the leftmost columns help the most.
 
@@ -26,7 +26,7 @@ For a compound access path on `(event_date, user_id, status)`, predicates on the
 | `user_id = ...` without `event_date` | Weaker |
 | `status = ...` only | Usually weak |
 
-### Index fallback examples
+## Index fallback examples
 
 ANSI SQL does not standardize physical indexing syntax. Use PostgreSQL/MySQL forms when you need executable examples.
 
@@ -44,7 +44,7 @@ CREATE INDEX idx_transactions_event_user
     ON transactions (event_date, user_id);
 ```
 
-### Distribution / bucketing
+## Distribution / bucketing
 
 Distribution decides where rows live in a parallel execution system. The portable concept is simple: rows with the same join key should be co-located when large joins are frequent.
 
@@ -59,7 +59,7 @@ INNER JOIN users u
 
 If both large tables are physically organized by `user_id`, the join can avoid moving as much data. In single-node systems this is mostly an indexing concern; in parallel systems it is also a data-placement concern.
 
-### Choosing columns
+## Choosing columns
 
 | Query pattern | Good physical design |
 |---|---|
@@ -69,7 +69,7 @@ If both large tables are physically organized by `user_id`, the join can avoid m
 | Frequent ordered window by account/date | Access path on `(account_id, event_date)` |
 | Rare ad hoc filters | Do not over-design; measure first |
 
-### Gotchas
+## Gotchas
 
 - A key that helps one query can hurt another by increasing write cost and maintenance.
 - Low-cardinality leading columns often produce skew; high-cardinality leading columns may reduce pruning.

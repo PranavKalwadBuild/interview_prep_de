@@ -1,6 +1,8 @@
-## 10. Incremental Patterns
+<!-- data-modelling-patterns: Incremental Patterns -->
 
-### Append-Only
+# Incremental Patterns
+
+## Append-Only
 
 New rows are inserted; existing rows are never modified. The source system guarantees that every event is immutable once written.
 
@@ -24,7 +26,7 @@ WHERE received_at > (SELECT MAX(received_at) FROM {{ this }})
 
 **How late-arriving data breaks it**: If events arrive with `event_timestamp` older than the incremental watermark, they are inserted as new rows (correct behavior if the filter is on `received_at`). But if the incremental filter is on `event_timestamp`, late-arriving events are silently dropped — they pre-date the watermark and the incremental model ignores them. The fix is to always use `received_at` (load time) as the incremental filter, and carry `event_timestamp` as a separate payload column.
 
-### Upsert (MERGE)
+## Upsert (MERGE)
 
 Rows are inserted if new; updated if the key already exists. This is the correct pattern for slowly changing source tables where rows represent current state.
 
@@ -58,7 +60,7 @@ WHEN NOT MATCHED THEN INSERT (
 
 **How late-arriving data breaks it**: If a MERGE processes records out of order — update A arrives, then update B (older than A) arrives — the MERGE will overwrite the correct A values with the older B values. The fix is an `AND source.updated_at >= target.dw_updated_at` guard in the WHEN MATCHED condition, rejecting out-of-order updates.
 
-### Delete + Reinsert (Partition Replacement)
+## Delete + Reinsert (Partition Replacement)
 
 The target partition(s) are dropped and replaced atomically. This is the most reliable pattern for partitioned tables where the source of truth is a full extract by partition key.
 
@@ -90,13 +92,13 @@ WHERE order_date_key = 20240615;
 
 **How late-arriving data breaks it**: If a correction arrives for order lines from 5 days ago, the pipeline must re-process the affected historical partition. This requires knowing which partitions are affected — either by tracking a `last_modified_at` column in the source or by re-processing a fixed rolling window (e.g., last 7 days of partitions on every run). The fixed rolling window approach is simple but expensive; it reprocesses data that hasn't changed.
 
-### Full Refresh
+## Full Refresh
 
 The entire target table is dropped and rebuilt from source. Correct only when the source itself is small enough that full reprocessing is tolerable (< 1M rows) or when the transformation logic changes and the output cannot be trusted without full recomputation.
 
 **Never use for tables > 10M rows in production pipelines.** The operational risk (a failed full refresh leaves the target table empty until completion) and cost (full scan of source data every run) make it untenable at scale. Identify the specific partitions affected by a logic change and do a targeted partition replacement instead.
 
-### CDC Modeling — Source Deletes in the Warehouse
+## CDC Modeling — Source Deletes in the Warehouse
 
 Change Data Capture captures inserts, updates, and deletes from the source system's transaction log. The warehouse must represent deletes without physically deleting rows (which would destroy audit history).
 

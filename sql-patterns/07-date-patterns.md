@@ -1,11 +1,10 @@
-<!-- Part of sql-patterns: Date Functions — Transformation Patterns, Quick Reference, Gotchas -->
-<!-- Source: sql_patterns.md lines 1408–1716 -->
+<!-- sql-patterns: Date Functions — Transformation Patterns, Quick Reference, Gotchas -->
 
-### H. Most Common Date Transformation Patterns
+# H. Most Common Date Transformation Patterns
 
 These are the patterns that appear in almost every data engineering or analytics SQL interview.
 
-#### H1 — Group by time period (most used)
+## H1 — Group by time period (most used)
 
 -- ANSI SQL approach: Extract year/month for grouping (most portable)
 -- When you need period-start values for display, use fallbacks below
@@ -53,16 +52,16 @@ GROUP BY EXTRACT(YEAR FROM executed_at), EXTRACT(MONTH FROM executed_at),
          EXTRACT(DAY FROM executed_at), EXTRACT(HOUR FROM executed_at)
 ORDER BY year, month, day, hour;
 
-#### H2 — Day of week analysis (weekday vs weekend)
+## H2 — Day of week analysis (weekday vs weekend)
 
 
-#### H3 — Age / tenure calculation
+## H3 — Age / tenure calculation
 
 
-#### H4 — First and last day of a month
+## H4 — First and last day of a month
 
 
-#### H5 — Fiscal year / quarter (when fiscal year ≠ calendar year)
+## H5 — Fiscal year / quarter (when fiscal year ≠ calendar year)
 
 ```sql
 -- Example: fiscal year starts April 1 (common in UK/India)
@@ -85,13 +84,13 @@ SELECT
 FROM trades;
 ```
 
-#### H6 — "Same period last year" date offset
+## H6 — "Same period last year" date offset
 
 
-#### H7 — Time bucket / histogram over hours or minutes
+## H7 — Time bucket / histogram over hours or minutes
 
 
-#### H8 — Check if a date falls within a range (SLA / validity windows)
+## H8 — Check if a date falls within a range (SLA / validity windows)
 
 ```sql
 -- Active records: valid_from <= check_date < valid_to
@@ -114,23 +113,23 @@ WHERE executed_at BETWEEN '2024-01-01' AND '2024-01-31'  -- misses 2024-01-31 23
 WHERE executed_at >= '2024-01-01' AND executed_at < '2024-02-01'
 ```
 
-#### H9 — Unix timestamp / epoch conversion
+## H9 — Unix timestamp / epoch conversion
 
 
-#### H10 — Timezone handling
+## H10 — Timezone handling
 
 
-#### H11 — Working days / business days between two dates
+## H11 — Working days / business days between two dates
 
 SQL has no built-in business days function — the standard approach uses a date spine or calendar table with an `is_business_day` flag:
 
 
-#### H12 — Date normalization and cleaning
+## H12 — Date normalization and cleaning
 
 
 ---
 
-### I. Date Function Quick Reference
+# I. Date Function Quick Reference
 
 | Function | ANSI SQL | PostgreSQL Fallback | MySQL Fallback |
 |---|---|---|---|
@@ -148,7 +147,7 @@ SQL has no built-in business days function — the standard approach uses a date
 
 ---
 
-### J. Gotchas with Dates
+# J. Gotchas with Dates
 
 - **BETWEEN with timestamps is inclusive on both bounds** — `BETWEEN '2024-01-01' AND '2024-01-31'` misses the last day's afternoon. Use `>= start AND < end + 1 day` instead.
   

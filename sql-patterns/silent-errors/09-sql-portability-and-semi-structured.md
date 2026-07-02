@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — SQL Portability and Semi-Structured Data -->
+<!-- sql-patterns: Silent Errors — SQL Portability and Semi-Structured Data -->
 
 # Silent Errors — SQL Portability and Semi-Structured Data
 

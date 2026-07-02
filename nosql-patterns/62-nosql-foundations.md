@@ -1,3 +1,5 @@
+<!-- nosql-patterns: NoSQL Foundations — CAP, PACELC, BASE, Data Models -->
+
 # NoSQL Foundations — CAP, PACELC, BASE, Data Models
 
 ## Why NoSQL matters to a Data Engineer

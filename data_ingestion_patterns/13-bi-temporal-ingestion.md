@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: 13 — Bi-Temporal Ingestion for Insurance Policy Data -->
+
 # 13 — Bi-Temporal Ingestion for Insurance Policy Data
 
 ![domain: insurance/financial](https://img.shields.io/badge/domain-insurance%20%2F%20financial-blue)

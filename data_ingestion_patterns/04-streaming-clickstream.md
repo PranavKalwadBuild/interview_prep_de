@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Streaming Ingestion Architecture: Clickstream and Web Analytics -->
+
 # Streaming Ingestion Architecture: Clickstream and Web Analytics
 
 ![domain: data-engineering](https://img.shields.io/badge/domain-data--engineering-blue)

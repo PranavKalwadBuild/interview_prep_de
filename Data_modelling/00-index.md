@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: Navigation Index -->
+<!-- data-modelling-patterns: Navigation Index -->
 
 # Data Modelling Patterns — Navigation Index
 

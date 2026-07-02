@@ -1,3 +1,5 @@
+<!-- nosql-patterns: NoSQL Quick Reference — Interview Q&A + Cheat Sheets -->
+
 # NoSQL Quick Reference — Interview Q&A + Cheat Sheets
 
 ## Common Interview Questions

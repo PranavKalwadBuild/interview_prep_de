@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Full Load — OLTP Financial Transactions to Data Warehouse at 5-Billion-Row Scale -->
+
 # Full Load — OLTP Financial Transactions to Data Warehouse at 5-Billion-Row Scale
 
 ![domain: data-ingestion](https://img.shields.io/badge/domain-data--ingestion-blue)

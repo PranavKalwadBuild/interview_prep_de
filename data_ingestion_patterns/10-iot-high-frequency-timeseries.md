@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: IoT High-Frequency Time-Series Ingestion -->
+
 # IoT High-Frequency Time-Series Ingestion
 
 ![Domain: Data Engineering](https://img.shields.io/badge/Domain-Data%20Engineering-blue)

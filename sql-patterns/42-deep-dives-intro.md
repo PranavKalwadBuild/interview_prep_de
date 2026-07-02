@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: Deep Dives — Part 3 Introduction and Overview -->
-<!-- Source: sql_patterns.md lines 10877–11136 -->
+<!-- sql-patterns: Deep Dives — Part 3 Introduction and Overview -->
 
-# Part 3 — Deep Dives
+# Deep Dives
 
 ### Edge Cases
 

@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors — SCD and History Corruption -->
+
 <!-- Part of Data_modelling: Silent Errors — SCD and History Corruption -->
 
 # Silent Errors — SCD and History Corruption

@@ -1,20 +1,19 @@
-<!-- Part of sql-patterns: Window Functions — Running Aggregates + ROWS vs RANGE Deep Dive -->
-<!-- Source: sql_patterns.md lines 2582–2950 -->
+<!-- sql-patterns: Window Functions — Running Aggregates + ROWS vs RANGE Deep Dive -->
 
-## 3. Window Functions — Running Aggregates
+# Window Functions — Running Aggregates
 
-### What it solves
+## What it solves
 
 Compute cumulative or moving aggregates (SUM, AVG, COUNT, MIN, MAX) over an ordered window.
 
-### Keywords to spot
+## Keywords to spot
 
 > "cumulative", "running total", "year-to-date", "month-to-date", "so far",
 > "up to this point", "all previous rows", "expanding window",
 > "balance to date", "net position", "progressively", "accumulate",
 > "by end of", "how much so far", "total through", "up to and including"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Cumulative deposits by a user up to each transaction date; running net position (buys minus sells) per asset; year-to-date P&L per portfolio
 - **E-commerce:** Running total revenue per day; cumulative GMV per seller per quarter; track whether a customer has crossed a loyalty reward threshold
@@ -22,7 +21,7 @@ Compute cumulative or moving aggregates (SUM, AVG, COUNT, MIN, MAX) over an orde
 - **HR/Analytics:** Year-to-date headcount growth; cumulative attrition count per quarter; running total of training hours completed per employee
 - **Logistics:** Running count of deliveries completed per driver per shift; cumulative distance driven per vehicle per month
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Pattern: Cumulative SUM (running total)
@@ -124,7 +123,7 @@ ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING
 ROWS BETWEEN CURRENT ROW AND CURRENT ROW
 ---
 
-#### ROWS BETWEEN — physical row offset
+### ROWS BETWEEN — physical row offset
 
 `ROWS` counts **actual physical rows** in the ordered partition. "3 PRECEDING" means exactly the 3 rows immediately before the current row in the result order, regardless of the values in those rows.
 
@@ -146,7 +145,7 @@ ROWS counts rows, not dates. Notice rows 2 and 3 share the same date — ROWS tr
 
 ---
 
-#### RANGE BETWEEN — logical value offset
+### RANGE BETWEEN — logical value offset
 
 `RANGE` defines the frame based on **the value of the ORDER BY column**, not physical row position. "CURRENT ROW" in RANGE means all rows whose ORDER BY value equals the current row's value. "N PRECEDING" means all rows whose ORDER BY value is within N of the current row's value.
 
@@ -171,7 +170,7 @@ Key observations:
 
 ---
 
-#### The default frame trap — silent wrong results
+### The default frame trap — silent wrong results
 
 This is the most important gotcha in all of window functions:
 
@@ -262,7 +261,7 @@ SUM(amount) OVER (
 )
 ---
 
-#### When to use RANGE
+### When to use RANGE
 
 Use `RANGE` when you want to aggregate **all rows that share the same ORDER BY value** as one logical unit, or when you need a **time-distance-based** window on irregular data:
 

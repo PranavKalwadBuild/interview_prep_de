@@ -1,5 +1,4 @@
-<!-- Part of sql-patterns: Quick Reference — Q21–Q24, Keyword→Pattern Map, Window Function Cheat Sheet -->
-<!-- Source: sql_patterns.md lines 15751–15947 -->
+<!-- sql-patterns: Quick Reference — Q21–Q24, Keyword→Pattern Map, Window Function Cheat Sheet -->
 
 -- Method 1: Correlated subquery
 SELECT t.*
@@ -20,7 +19,7 @@ FROM (
 WHERE amount > user_avg;
 ---
 
-### Q21. Count of Events in a Sliding 7-Day Window
+# Q21. Count of Events in a Sliding 7-Day Window
 
 **The question:** "For each day, count the number of orders placed in the prior 7 days (including today)."
 
@@ -69,7 +68,7 @@ WHERE a.col1 IS DISTINCT FROM b.col1   -- PostgreSQL syntax for NULL-safe compar
    OR a.id IS NULL OR b.id IS NULL;
 ---
 
-### Q23. Customers Active in Both Periods (Retention)
+# Q23. Customers Active in Both Periods (Retention)
 
 **The question:** "Find customers who purchased in both Q1 2024 and Q2 2024."
 

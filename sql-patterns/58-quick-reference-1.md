@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: Quick Reference — Interview Questions Q1–Q9 (Pivot, Nth Salary, Duplicates, Manager Comparison) -->
-<!-- Source: sql_patterns.md lines 15206–15500 -->
+<!-- sql-patterns: Quick Reference — Interview Questions Q1–Q9 (Pivot, Nth Salary, Duplicates, Manager Comparison) -->
 
-# Part 4 — Quick Reference
+# Quick Reference
 
 ---
 

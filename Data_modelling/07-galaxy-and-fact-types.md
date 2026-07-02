@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: Galaxy Schema, all 4 Fact Table Types -->
+<!-- data-modelling-patterns: Galaxy Schema, all 4 Fact Table Types -->
 
 # Galaxy Schema and Fact Table Types
 

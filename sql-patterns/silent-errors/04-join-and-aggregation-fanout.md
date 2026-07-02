@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Join and Aggregation Fan-out -->
+<!-- sql-patterns: Silent Errors — Join and Aggregation Fan-out -->
 
 # Silent Errors — Join and Aggregation Fan-out
 

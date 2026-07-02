@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Incremental High-Watermark Ingestion Pattern -->
+
 # Incremental High-Watermark Ingestion Pattern
 
 ![Difficulty: Advanced](https://img.shields.io/badge/Difficulty-Advanced-red)

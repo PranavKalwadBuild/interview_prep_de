@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: Keys, Cardinality and Relationships -->
+<!-- data-modelling-patterns: Keys, Cardinality and Relationships -->
 
 # Keys, Cardinality and Relationships
 

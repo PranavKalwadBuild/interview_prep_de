@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: Window Function Default Frame — The RANGE Trap (6 Traps, Engine Differences, Best Practices) -->
-<!-- Source: sql_patterns.md lines 3211–3572 -->
+<!-- sql-patterns: Window Function Default Frame — The RANGE Trap (6 Traps, Engine Differences, Best Practices) -->
 
-## 3-A. Window Function Default Frame — The RANGE Trap
+# 3-A. Window Function Default Frame — The RANGE Trap
 
 The most common source of **silent, undetected wrong results** in window functions is not a typo or a logic error — it is a frame you never wrote. When you add `ORDER BY` to a window function but omit the frame clause, every major SQL engine silently applies:
 
@@ -15,7 +14,7 @@ This section focuses entirely on that default: what it means, the six distinct w
 
 ---
 
-### The Default Frame Rules — One Table to Memorise
+## The Default Frame Rules — One Table to Memorise
 
 | What you wrote | Default frame the engine applies | Behaviour |
 |---|---|---|
@@ -28,7 +27,7 @@ The danger zone is row 2. Adding `ORDER BY` triggers a RANGE-based cumulative fr
 
 ---
 
-### Trap 1 — Running Total Inflates on Tied Dates
+## Trap 1 — Running Total Inflates on Tied Dates
 
 **The most common manifestation.** If two rows share the same ORDER BY value (e.g., two transactions on the same date), RANGE groups them as peers. Both see the cumulative sum *including all peers at their date*, not a row-by-row running total.
 
@@ -71,7 +70,7 @@ FROM transactions;
 
 ---
 
-### Trap 2 — Adding ORDER BY Silently Switches Aggregate from Partition-Wide to Cumulative
+## Trap 2 — Adding ORDER BY Silently Switches Aggregate from Partition-Wide to Cumulative
 
 This trap catches people who add `ORDER BY` to get deterministic output, not realising it changes the *aggregate behaviour* of the window function.
 
@@ -106,7 +105,7 @@ SUM(amount) OVER (
 
 ---
 
-### Trap 3 — LAST_VALUE Always Returns the Current Row's Value
+## Trap 3 — LAST_VALUE Always Returns the Current Row's Value
 
 `LAST_VALUE` is the most reliably broken window function under the default frame. The default frame ends at the current row, so "last value" means "last value *so far*" — which is always the current row's value.
 
@@ -142,7 +141,7 @@ FROM credit_history;
 
 ---
 
-### Trap 4 — NULL Values in ORDER BY Column Have Non-Intuitive RANGE Behaviour
+## Trap 4 — NULL Values in ORDER BY Column Have Non-Intuitive RANGE Behaviour
 
 When the ORDER BY column contains NULLs, RANGE frame boundaries behave in ways that are never obvious from reading the query.
 
@@ -173,14 +172,14 @@ SUM(amount) OVER (
 
 ---
 
-### Trap 5 — RANGE with Explicit Offsets Has Strict Type and Cardinality Constraints
+## Trap 5 — RANGE with Explicit Offsets Has Strict Type and Cardinality Constraints
 
 When you intentionally use RANGE (for time-distance windows), it imposes constraints that ROWS does not.
 
 
 ---
 
-### Trap 6 — LAG / LEAD / ROW_NUMBER / RANK Silently Ignore Frame Clauses
+## Trap 6 — LAG / LEAD / ROW_NUMBER / RANK Silently Ignore Frame Clauses
 
 Writing a frame clause on these functions is not an error — but the frame has no effect. This creates a false sense of security.
 
@@ -203,7 +202,7 @@ LAG(amount, 1) OVER (
 
 ---
 
-### Engine-Specific Default Frame Behaviour
+## Engine-Specific Default Frame Behaviour
 
 All major engines agree on the SQL standard default: `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` when ORDER BY is present. However, edge-case behaviour differs.
 
@@ -219,7 +218,7 @@ All major engines agree on the SQL standard default: `RANGE BETWEEN UNBOUNDED PR
 
 ---
 
-### How to Detect This Bug in Existing Queries
+## How to Detect This Bug in Existing Queries
 
 Use this checklist when reviewing any window function query:
 
@@ -251,7 +250,7 @@ FROM transactions;
 
 ---
 
-### Best Practices — The Always-Explicit-Frame Rule
+## Best Practices — The Always-Explicit-Frame Rule
 
 **Rule:** Any window function call that uses an aggregate (`SUM`, `AVG`, `MIN`, `MAX`, `COUNT`, `FIRST_VALUE`, `LAST_VALUE`) with an `ORDER BY` clause **must have an explicit frame clause**. No exceptions.
 
@@ -282,7 +281,7 @@ MAX(salary)   OVER (PARTITION BY dept_id)         -- max in department ✓
 
 ---
 
-### Quick Reference — Explicit Frame by Use Case
+## Quick Reference — Explicit Frame by Use Case
 
 | Use Case | Correct Frame |
 |---|---|
@@ -298,7 +297,7 @@ MAX(salary)   OVER (PARTITION BY dept_id)         -- max in department ✓
 
 ---
 
-### Gotchas Summary
+## Gotchas Summary
 
 | Gotcha | What happens | Fix |
 |---|---|---|

@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 05 — OOM Crashes and Shuffle Tuning -->
+
 # Scenario 05 — OOM Crashes and Shuffle Tuning
 
 ## The Problem Statement

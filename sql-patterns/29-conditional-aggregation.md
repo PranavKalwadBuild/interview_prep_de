@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Conditional Aggregations -->
-<!-- Source: sql_patterns.md lines 7740–7971 -->
+<!-- sql-patterns: Conditional Aggregations -->
 
-## 15. Conditional Aggregations
+# Conditional Aggregations
 
-### What it solves
+## What it solves
 
 Compute multiple aggregations (counts, sums) for different subsets of data in a single pass — instead of multiple queries or subqueries.
 
-### Keywords to spot
+## Keywords to spot
 
 > "count of X and Y separately", "sum of approved vs rejected",
 > "breakdown by status", "pivot", "aggregate per category in one row",
@@ -15,7 +14,7 @@ Compute multiple aggregations (counts, sums) for different subsets of data in a 
 > "split by", "by type", "separate columns for", "compare categories in one row",
 > "ratio of", "proportion of", "% of total per group", "flag and count"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Count BUY vs SELL trades per user per day; sum of successful vs failed deposits; ratio of declined to approved transactions per merchant (fraud pattern)
 - **E-commerce:** Count orders by status (placed/shipped/delivered/returned) per seller per week; % of returns per product category; revenue from new vs returning customers in one row per day
@@ -23,7 +22,7 @@ Compute multiple aggregations (counts, sums) for different subsets of data in a 
 - **Marketing:** Impressions vs clicks vs conversions per campaign per channel in one row; paid vs organic vs referral revenue per day
 - **A/B Testing:** Count and sum metrics per experiment variant (control vs treatment) in a single aggregated row for easy comparison
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Count trades by type per user per day
@@ -52,15 +51,15 @@ FROM transactions
 GROUP BY user_id;
 ```
 
-### Gotchas
+## Gotchas
 
 - `SUM(CASE WHEN ... THEN 1 ELSE 0 END)` = `COUNT(CASE WHEN ... THEN 1 END)` — both work, but SUM is more explicit
 - `COUNT(CASE WHEN ... THEN 1 END)` — the ELSE is implicitly NULL, and COUNT ignores NULLs — equivalent to ELSE 0 for SUM
 - Use `FILTER (WHERE ...)` in PostgreSQL as a cleaner alternative: `COUNT(*) FILTER (WHERE status = 'SUCCESS')`
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 15-A: COUNT with ELSE 0 counts ALL rows, not matching rows
+### Edge 15-A: COUNT with ELSE 0 counts ALL rows, not matching rows
 
 **Problem:**
 
@@ -108,7 +107,7 @@ GROUP BY dept_id;
 -- FILTER is unambiguous about its intent; no risk of accidentally writing ELSE 0
 ```
 
-#### Edge 15-B: Non-exhaustive CASE — the implicit ELSE NULL trap in SUM
+### Edge 15-B: Non-exhaustive CASE — the implicit ELSE NULL trap in SUM
 
 **Problem:**
 

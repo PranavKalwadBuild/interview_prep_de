@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors — Incremental and CDC Silent Bugs -->
+
 <!-- Part of Data_modelling: Silent Errors — Incremental and CDC Silent Bugs -->
 
 # Silent Errors — Incremental and CDC Silent Bugs

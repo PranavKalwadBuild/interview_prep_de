@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: API Pagination with Rate Limiting at Scale -->
+
 # API Pagination with Rate Limiting at Scale
 
 ![domain: data-ingestion](https://img.shields.io/badge/domain-data--ingestion-blue)

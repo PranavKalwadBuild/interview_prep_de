@@ -1,4 +1,4 @@
-<!-- Part of data-modelling-patterns: Extraction Patterns — Full, Watermark, CDC, Idempotency -->
+<!-- data-modelling-patterns: Extraction Patterns — Full, Watermark, CDC, Idempotency -->
 
 # Extraction Patterns
 

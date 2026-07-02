@@ -1,10 +1,10 @@
-<!-- Part of sql-patterns: Running Aggregates — Edge Cases and Scale -->
+<!-- sql-patterns: Running Aggregates — Edge Cases and Scale -->
 
-## Running Aggregates — Edge Cases and Scale
+# Running Aggregates — Edge Cases and Scale
 
 Running aggregates are simple at small scale and expensive at large scale because every row depends on an ordered prefix of rows.
 
-### Edge 1: Non-unique ordering creates unstable totals
+## Edge 1: Non-unique ordering creates unstable totals
 
 **Problem:**
 
@@ -29,13 +29,13 @@ If two rows have the same `txn_time`, their relative order is not guaranteed. Th
 ORDER BY txn_time, txn_id
 ```
 
-### Edge 2: `ROWS` and `RANGE` answer different questions
+## Edge 2: `ROWS` and `RANGE` answer different questions
 
 `ROWS 6 PRECEDING` means "the previous six physical rows." It is not the same as "the previous six calendar days" when dates are missing or duplicated.
 
 Use `ROWS` for row-count windows. Use date predicates, date spines, or calendar joins for calendar windows.
 
-### Edge 3: Large partitions dominate runtime
+## Edge 3: Large partitions dominate runtime
 
 ```sql
 SUM(amount) OVER (
@@ -47,7 +47,7 @@ SUM(amount) OVER (
 
 If one user has millions of transactions, that user's partition becomes the bottleneck even if most users are small.
 
-### Code-Level Fix
+## Code-Level Fix
 
 ```sql
 -- Reduce input before computing the running total.
@@ -69,7 +69,7 @@ SELECT
 FROM scoped;
 ```
 
-### System-Level Fix
+## System-Level Fix
 
 For frequently requested running totals, maintain snapshots.
 
@@ -88,7 +88,7 @@ FROM account_daily_amounts;
 
 Then detail queries only need to start from the latest snapshot and add recent events.
 
-### Gotchas
+## Gotchas
 
 - Running totals require deterministic ordering.
 - Recomputing from the beginning of history is usually unnecessary.

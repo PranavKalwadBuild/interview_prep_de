@@ -1,6 +1,6 @@
-<!-- Part of data-modelling-patterns: Choosing Right Model, Fan-out Trap, M:N, Hierarchies -->
+<!-- data-modelling-patterns: Choosing Right Model, Fan-out Trap, M:N, Hierarchies -->
 
-# Part 5 — Design Decisions and Edge Cases
+# Design Decisions and Edge Cases
 
 ---
 

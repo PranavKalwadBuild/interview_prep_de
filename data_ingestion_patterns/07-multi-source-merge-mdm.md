@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: 07 — Multi-Source Merge and Master Data Management (MDM) -->
+
 # 07 — Multi-Source Merge and Master Data Management (MDM)
 
 > **Domain:** Data Integration / MDM

@@ -1,3 +1,5 @@
+<!-- data-modelling-patterns: Silent Errors — Grain and Aggregation Integrity -->
+
 <!-- Part of Data_modelling: Silent Errors — Grain and Aggregation Integrity -->
 
 # Silent Errors — Grain and Aggregation Integrity

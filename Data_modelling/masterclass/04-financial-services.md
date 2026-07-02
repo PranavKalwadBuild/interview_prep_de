@@ -1,6 +1,8 @@
-## 4. Financial Services
+<!-- data-modelling-patterns: Financial Services -->
 
-### When to Use This Design
+# Financial Services
+
+## When to Use This Design
 
 Financial services data modeling is governed by two imperatives that conflict with analytical convenience: **regulatory auditability** (every balance must be reconstructable at any historical date) and **transaction finality** (once settled, a transaction cannot be deleted or modified — only corrected via offsetting entries). The business questions:
 
@@ -9,9 +11,9 @@ Financial services data modeling is governed by two imperatives that conflict wi
 - What is the total credit exposure to counterparty X across all products as of today?
 - Show me the complete audit trail for all changes to the rate on loan 9999.
 
-### The Schema
+## The Schema
 
-#### Double-Entry Accounting Ledger
+### Double-Entry Accounting Ledger
 
 Double-entry is the foundational constraint: every financial transaction must have equal debits and credits. The ledger model enforces this at the data level by storing both legs of every entry.
 
@@ -64,7 +66,7 @@ CLUSTER BY (account_key, entity_key);
 
 **Why amount is always positive with a debit_credit_flag**: Signed amounts (negative for credits) seem more intuitive but create aggregation errors. `SUM(amount)` on a signed column gives you zero for a balanced entry — which looks correct but hides all activity. `SUM(CASE WHEN debit_credit_flag = 'D' THEN amount ELSE 0 END)` is unambiguous. Regulatory systems (Basel III reporting, GAAP sub-ledger reconciliation) always use unsigned amounts with explicit sign flags.
 
-#### Account Dimension with SCD Type 2
+### Account Dimension with SCD Type 2
 
 ```sql
 CREATE TABLE dim_account (
@@ -87,7 +89,7 @@ CREATE TABLE dim_account (
 CLUSTER BY (account_type, account_id);
 ```
 
-#### Transaction Fact at Multiple Granularities
+### Transaction Fact at Multiple Granularities
 
 The key design decision for financial transactions is whether to store at event grain or daily position grain. The answer is **both** — for different use cases.
 
@@ -136,7 +138,7 @@ PARTITION BY (position_date_key)
 CLUSTER BY (account_key, entity_key);
 ```
 
-#### Point-in-Time Balance Reconstruction
+### Point-in-Time Balance Reconstruction
 
 The canonical financial services hard problem: "What was the balance of account X at close of business on December 31, 2023?" There are three approaches, each with different tradeoffs:
 
@@ -174,7 +176,7 @@ WHERE account_key = 99999
 **Option 3: Hybrid (production pattern)**
 Use daily snapshots for dates where snapshots exist, fall back to transaction summation for gaps. This is encapsulated in a SQL view or a dbt model that generates the correct balance for any arbitrary date.
 
-#### Risk/Exposure Modeling
+### Risk/Exposure Modeling
 
 Credit exposure requires knowing, at any point in time, how much a given counterparty owes across all products and legal entities. This is the "aggregation across grains" problem:
 
@@ -200,7 +202,7 @@ PARTITION BY (exposure_date_key)
 CLUSTER BY (counterparty_key, entity_key, exposure_type);
 ```
 
-### The Hard Problems
+## The Hard Problems
 
 **Audit Trail for Rate Changes**: When a loan's interest rate changes (rate adjustment, renegotiation, error correction), the history of rate changes must be preserved not just as the current rate but with the exact window each rate was effective. This is another bi-temporal requirement. The `dim_account` SCD Type 2 captures when the warehouse learned about the rate change. A separate `fact_account_rate_history` table captures the contractually effective rate windows:
 
@@ -224,7 +226,7 @@ CLUSTER BY (account_key, rate_type);
 
 **Balance Reconciliation at Any Historical Date**: The daily position fact assumes the GL and sub-ledger are always in sync. They are not. Reconciliation breaks require querying `fact_journal_entry_line` summed by account versus `fact_account_daily_position.closing_balance` for the same account and date. Discrepancies are expected during end-of-day processing windows. The correct architecture stores a `reconciliation_status` flag on `fact_account_daily_position` that is updated when the GL sign-off process runs.
 
-### Scale Mechanics
+## Scale Mechanics
 
 At a major bank, the `fact_transaction` table grows at 100M–500M rows per day across all products. Five years of retention yields 100B+ rows. This is beyond the scale where daily partition scans are acceptable even for a single account. The practical solution used by Citi, JPMorgan, and others in their analytical warehouses:
 

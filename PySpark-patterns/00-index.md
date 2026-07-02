@@ -45,6 +45,8 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 | 26-explain-deep-dive.md | explain() Deep Dive | All 5 modes, every physical plan operator, AQE plans, codegen, CBO statistics, common misreadings |
 | 27-jobs-stages-tasks.md | Jobs, Stages, and Tasks | Full execution model: job lifecycle, ShuffleMapStage vs ResultStage, input vs shuffle partitions, task locality, speculation, failure modes |
 | 28-spark-ui-debugging.md | Spark UI Debugging | Every tab and metric, diagnosing skew/spill/GC/OOM/failed tasks, Databricks Photon, History Server |
+| 29-data-cleaning-workflow.md | Data Cleaning Workflow | Sequential practitioner's playbook: load, schema audit, null treatment, dedup, type casting, string/date normalization, outlier handling, validation |
+| 30-statistical-eda.md | Statistical EDA | Summary stats, percentiles, cardinality, null rates, histograms, skewness/kurtosis, correlation matrices, cross-tabs, time-series profile |
 
 ## Reading Order
 
@@ -54,7 +56,9 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 
 **Performance tuning:** 14 -> 21 -> 16 -> 24 -> 26 -> 27 -> 28
 
-**Data quality:** 07 -> 08 -> 22 -> 23
+**Data quality:** 07 -> 08 -> 22 -> 23 -> 29 -> 30
+
+**EDA on a new dataset:** 29 -> 30
 
 **Delta / Lakehouse:** 17 -> 18 -> 20 -> 19
 

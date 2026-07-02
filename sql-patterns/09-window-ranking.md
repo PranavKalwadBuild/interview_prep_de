@@ -1,20 +1,19 @@
-<!-- Part of sql-patterns: Window Functions — Ranking: ROW_NUMBER, RANK, DENSE_RANK -->
-<!-- Source: sql_patterns.md lines 1926–2249 -->
+<!-- sql-patterns: Window Functions — Ranking: ROW_NUMBER, RANK, DENSE_RANK -->
 
-## 1. Window Functions — Ranking
+# Window Functions — Ranking
 
-### What it solves
+## What it solves
 
 Assign a rank or position to rows within a group, without collapsing rows (unlike GROUP BY).
 
-### Keywords to spot
+## Keywords to spot
 
 > "rank", "top N per", "highest/lowest per group", "position", "nth largest", "leaderboard",
 > "for each user find their most recent", "for each category find the best",
 > "ranked by", "order within group", "podium", "standings", "best performing",
 > "most active", "top earner", "number one in each", "first place per"
 
-### Difference between the three
+## Difference between the three
 
 | Function | Ties | Gaps in rank? |
 |---|---|---|
@@ -30,7 +29,7 @@ RANK       → 1, 1, 3   (gap at 2)
 DENSE_RANK → 1, 1, 2   (no gap)
 ```
 
-### Business Context
+## Business Context
 
 - **Fintech/Trading:** Rank traders by daily volume; find top wallet by balance; identify the highest-fee transaction per user per month for reconciliation
 - **E-commerce:** Rank products by revenue per category; find each customer's most recent order; identify the top-selling SKU per warehouse location
@@ -40,7 +39,7 @@ DENSE_RANK → 1, 1, 2   (no gap)
 - **Healthcare:** Rank hospitals by patient readmission rate per region; find each patient's most recent diagnostic code
 - **Telecom:** Rank plans by revenue per geography; find the most recent usage record per subscriber SIM
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Pattern: Rank rows within a group
@@ -76,7 +75,7 @@ FROM ranked
 WHERE rnk <= 3;
 ```
 
-### Gotchas
+## Gotchas
 
 - **ROW_NUMBER non-determinism without ORDER BY**: When `ROW_NUMBER()` is used without an `ORDER BY` clause inside the `OVER()` clause, the assignment of numbers to rows is arbitrary and non-deterministic because the order is not guaranteed. This can lead to inconsistent results across query executions.
   **Fix:** Always specify an `ORDER BY` clause (e.g., `ORDER BY txn_date, txn_id`) to ensure a deterministic sequence.
@@ -89,9 +88,9 @@ WHERE rnk <= 3;
 - **PARTITION BY optional but important**: Omitting `PARTITION BY` treats the entire result set as a single partition, which may be unintentional when you need per‑group calculations (e.g., running total per customer).
   **Fix:** Always include `PARTITION BY` when the calculation should restart at boundaries (e.g., per user, per day). If you truly want a global calculation, you can omit it, but be explicit about intent.
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 1-A: ROW_NUMBER non-determinism with tied ORDER BY
+### Edge 1-A: ROW_NUMBER non-determinism with tied ORDER BY
 
 **Problem:**
 
@@ -119,7 +118,7 @@ ORDER BY txn_date, txn_id     -- txn_id is unique → deterministic result
 -- Or: ORDER BY txn_date, created_at  -- if txn_id isn't monotonic
 ```
 
-#### Edge 1-B: Missing PARTITION BY — entire table treated as one partition
+### Edge 1-B: Missing PARTITION BY — entire table treated as one partition
 
 **Problem:**
 
@@ -143,7 +142,7 @@ SELECT * FROM ranked WHERE rnk <= 3;
 DENSE_RANK() OVER (PARTITION BY user_id ORDER BY txn_amount DESC)
 ```
 
-#### Edge 1-C: RANK() vs DENSE_RANK() — wrong one for the business question
+### Edge 1-C: RANK() vs DENSE_RANK() — wrong one for the business question
 
 **Problem:**
 
@@ -182,7 +181,7 @@ SELECT salary FROM (
 -- emp_id as tiebreaker makes the result deterministic
 ```
 
-#### Edge 1-D: QUALIFY with subquery injection (Snowflake-specific)
+### Edge 1-D: QUALIFY with subquery injection (Snowflake-specific)
 
 **Problem:**
 
@@ -214,9 +213,9 @@ SELECT * FROM ranked WHERE rn = 1;
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 `ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY executed_at DESC)` on 800M rows:
 

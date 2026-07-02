@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: 11 — Healthcare Compliance Ingestion: Multi-Hospital PHI Pipeline -->
+
 # 11 — Healthcare Compliance Ingestion: Multi-Hospital PHI Pipeline
 
 > **Domain:** Healthcare / Clinical Data  

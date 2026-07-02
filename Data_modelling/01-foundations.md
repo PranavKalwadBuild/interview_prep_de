@@ -1,6 +1,6 @@
-<!-- Part of data-modelling-patterns: Foundations — What is Data Modelling, OLTP vs OLAP, ETL vs ELT -->
+<!-- data-modelling-patterns: Foundations — What is Data Modelling, OLTP vs OLAP, ETL vs ELT -->
 
-# Part 1 — Foundations
+# Foundations
 
 ---
 

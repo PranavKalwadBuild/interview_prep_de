@@ -1,6 +1,6 @@
-<!-- Part of data-modelling-patterns: Normalization — 1NF, 2NF, 3NF, BCNF, Denormalization -->
+<!-- data-modelling-patterns: Normalization — 1NF, 2NF, 3NF, BCNF, Denormalization -->
 
-# Part 2 — Normalization (OLTP)
+# Normalization (OLTP)
 
 ---
 

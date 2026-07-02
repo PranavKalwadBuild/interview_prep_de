@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Set Operations and Ordering -->
+<!-- sql-patterns: Silent Errors — Set Operations and Ordering -->
 
 # Silent Errors — Set Operations and Ordering
 

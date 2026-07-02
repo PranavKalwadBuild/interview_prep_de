@@ -1,9 +1,8 @@
-<!-- Part of sql-patterns: Duplicate Handling — Latest Record, End-to-End Example, Quick Reference Card -->
-<!-- Source: sql_patterns.md lines 14985–15205 -->
+<!-- sql-patterns: Duplicate Handling — Latest Record, End-to-End Example, Quick Reference Card -->
 
-### 36-T. Duplicates in Latest Record per Entity
+# 36-T. Duplicates in Latest Record per Entity
 
-#### Problem — Multiple rows sharing the maximum timestamp
+## Problem — Multiple rows sharing the maximum timestamp
 
 ```sql
 -- "Get the latest status per order."
@@ -48,7 +47,7 @@ SELECT * FROM ranked WHERE rn = 1;
 
 ---
 
-### 36-U. Full End-to-End Example — Revenue Pipeline with Duplicates Everywhere
+# 36-U. Full End-to-End Example — Revenue Pipeline with Duplicates Everywhere
 
 A realistic pipeline where duplicates enter at multiple stages and compound.
 
@@ -133,15 +132,15 @@ ORDER BY month;
 
 ---
 
-### 36-V. Duplicate Handling — Quick Reference Card
+# 36-V. Duplicate Handling — Quick Reference Card
 
-#### Detection queries
-
-
-#### Fix patterns at a glance
+## Detection queries
 
 
-#### Pattern → Duplicate Risk → Fix
+## Fix patterns at a glance
+
+
+## Pattern → Duplicate Risk → Fix
 
 | Pattern | Primary Duplicate Risk | Fix |
 |---|---|---|

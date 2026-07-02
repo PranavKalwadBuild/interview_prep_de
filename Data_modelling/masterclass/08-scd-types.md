@@ -1,6 +1,8 @@
-## 8. SCD Types in Depth
+<!-- data-modelling-patterns: SCD Types in Depth -->
 
-### Type 1 — Overwrite
+# SCD Types in Depth
+
+## Type 1 — Overwrite
 
 The current value replaces the old value. No history is retained.
 
@@ -17,7 +19,7 @@ WHERE customer_id = 'CUST-001'
 **Cannot answer**: What email did we send to this customer in January 2023?
 **Use when**: The attribute correction represents a fix to wrong data (typo, not a change). Business users never ask historical questions about this attribute.
 
-### Type 2 — Add New Row (Full History)
+## Type 2 — Add New Row (Full History)
 
 A new row is inserted for every change. Old rows are expired with an `eff_end_date`.
 
@@ -55,7 +57,7 @@ JOIN dim_customer c ON f.customer_key = c.customer_key;
 -- The join uses the surrogate key at order time; natural key deduplicates
 ```
 
-### Type 3 — Add Column for Prior Value
+## Type 3 — Add Column for Prior Value
 
 Only the current value and one prior value are stored. History beyond one change is lost.
 
@@ -76,7 +78,7 @@ WHERE customer_id = 'CUST-001' AND is_current = TRUE;
 **Cannot answer**: What was the tier 3 changes ago?
 **Use when**: Analysts genuinely only ever need "current vs previous" (A/B test holdout comparison, promotion response analysis for the most recent change only). Rare in practice.
 
-### Type 4 — Mini-Dimension (History Table)
+## Type 4 — Mini-Dimension (History Table)
 
 Rapidly changing attributes are split into a separate history table. The main dimension stores only stable attributes.
 
@@ -108,7 +110,7 @@ CREATE TABLE dim_customer_profile (
 
 **Use when**: A small set of attributes changes very frequently (daily or hourly) and tracking them in the main dimension would generate enormous numbers of Type 2 rows — bloating the dimension and degrading join performance on the fact.
 
-### Type 6 — Hybrid (1+2+3)
+## Type 6 — Hybrid (1+2+3)
 
 Type 6 combines Type 1 (overwrite current value), Type 2 (add new row), and Type 3 (add prior value column) into a single row structure:
 
@@ -133,7 +135,7 @@ A historical fact row joined to a Type 6 dimension gives three perspectives simu
 
 **Maintenance complexity**: When a new change creates a new Type 2 row, all prior rows for that customer must have their `loyalty_tier_curr` column updated (Type 1 overwrite across the history). At 100M customer rows, this update operation is expensive. Type 6 is appropriate for dimensions with < 10M rows where the "current value in historical context" query is frequent.
 
-### Bi-Temporal: When Type 2 Is Insufficient
+## Bi-Temporal: When Type 2 Is Insufficient
 
 Type 2 records the transaction time: when the warehouse recorded the change. It does not record the valid time: when the change was actually effective in the real world. For most dimensions, these are the same. But when corrections are made retroactively, they diverge.
 

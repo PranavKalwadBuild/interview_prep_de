@@ -1,11 +1,10 @@
-<!-- Part of sql-patterns: SQL Order of Execution — Written vs Execution Order, Flow Diagram, Critical Rules -->
-<!-- Source: sql_patterns.md lines 1717–1921 -->
+<!-- sql-patterns: SQL Order of Execution — Written vs Execution Order, Flow Diagram, Critical Rules -->
 
-## N. SQL Order of Execution
+# N. SQL Order of Execution
 
 Understanding the **logical order** in which SQL processes each clause is one of the most fundamental — and most commonly misunderstood — concepts in SQL. It explains every "column not found", "aggregate not allowed here", and "can't filter on window function" error you will ever encounter.
 
-### Written Order (What You Type) vs Execution Order (What the Engine Does)
+## Written Order (What You Type) vs Execution Order (What the Engine Does)
 
 ```sql
 -- Written order (left to right, top to bottom):

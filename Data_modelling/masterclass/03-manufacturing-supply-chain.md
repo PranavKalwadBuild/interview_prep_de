@@ -1,6 +1,8 @@
-## 3. Manufacturing / Supply Chain
+<!-- data-modelling-patterns: Manufacturing / Supply Chain -->
 
-### When to Use This Design
+# Manufacturing / Supply Chain
+
+## When to Use This Design
 
 Manufacturing analytics is driven by operational efficiency and traceability questions:
 
@@ -11,9 +13,9 @@ Manufacturing analytics is driven by operational efficiency and traceability que
 
 The domain-specific challenge is **recursive hierarchy**: a finished product is built from subassemblies, which are built from sub-subassemblies, which consume raw materials. The Bill of Materials (BOM) can be 8–12 levels deep. Queries that must traverse this hierarchy (cost rollup, requirements explosion) are fundamentally recursive — and recursive queries have different performance characteristics in different warehouse platforms.
 
-### The Schema
+## The Schema
 
-#### Bill of Materials (Recursive Hierarchy)
+### Bill of Materials (Recursive Hierarchy)
 
 ```sql
 -- BOM Item master: every part, whether purchased or manufactured
@@ -63,7 +65,7 @@ PARTITION BY (eff_start_date)
 CLUSTER BY (root_item_id, component_item_id);
 ```
 
-#### BOM Explosion: Query-Time vs Materialized
+### BOM Explosion: Query-Time vs Materialized
 
 This is the central design tradeoff in manufacturing analytics.
 
@@ -108,7 +110,7 @@ GROUP BY component_item_id, i.unit_cost;
 
 **Why materialization wins at scale**: At 1M+ BOM nodes (common in aerospace or automotive), the recursive CTE spawns thousands of joins. Query time degrades from seconds to minutes. The `fact_bom_flattened` table is rebuilt nightly by the ELT pipeline running the above CTE — the cost is paid once at load time, not at every analyst query. The tradeoff is that the flattened table is stale relative to BOM changes made today. For most manufacturing analytics workloads, T+1 latency is acceptable. For real-time MRP systems, the recursive query is preferred or the flattened table is invalidated and rebuilt on every BOM change.
 
-#### Work Orders
+### Work Orders
 
 ```sql
 CREATE TABLE fact_work_order (
@@ -135,7 +137,7 @@ PARTITION BY (planned_start_date_key)
 CLUSTER BY (plant_key, order_status, finished_item_key);
 ```
 
-#### Inventory Movements in Manufacturing
+### Inventory Movements in Manufacturing
 
 Manufacturing inventory movements are significantly more complex than retail — they include production issues, scrap, rework, quality holds, and WIP transfers that have no retail equivalent.
 
@@ -160,7 +162,7 @@ PARTITION BY (movement_date_key)
 CLUSTER BY (item_key, work_order_key, movement_type);
 ```
 
-#### Quality Events
+### Quality Events
 
 Quality event modeling must link to the specific batch, lot, or work order — not just the item. This linkage is what enables root cause analysis: "was the high scrap rate on Work Order 5550 caused by Lot XYZ of raw material RM045?"
 
@@ -189,13 +191,13 @@ PARTITION BY (event_date_key)
 CLUSTER BY (plant_key, item_key, defect_code);
 ```
 
-### The Hard Problems
+## The Hard Problems
 
 **Event-Driven Inventory Reconciliation**: At a large manufacturer with 50 plants and 100,000 SKUs, inventory movements arrive from ERP systems, IoT floor sensors, and manual transactions. The aggregate (sum of movements) should equal the physical count snapshot. When they diverge — and they will — the reconciliation query must identify the specific movements that caused the discrepancy. This requires both the movement fact (for aggregation) and the snapshot fact (for comparison). The movement table must support efficient `SUM(quantity) WHERE movement_type != 'ADJUSTMENT'` over arbitrary date ranges by item+location — hence `item_key` as the first clustering column.
 
 **BOM Version Control**: BOMs change over time. When a component is substituted, the old BOM version must be retained for historical work order costing. The `eff_start_date/eff_end_date` pattern on `fact_bom_structure` handles this, but it means cost rollups for historical work orders must join to the BOM version effective at the time of the work order, not the current BOM. This is the same bi-temporal pattern as healthcare, applied to engineering data.
 
-### Scale Mechanics
+## Scale Mechanics
 
 The BOM flattened table is the primary scale lever. In automotive supply chains, a vehicle BOM can have 30,000+ unique components with up to 12 hierarchy levels. The flattened table for a 10,000-part BOM across 20 finished goods produces ~200,000 rows — trivial. For a 30,000-part BOM across 500 models, the flattened table hits ~15M rows and becomes a first-class partitioned table partitioned by `root_item_id` hash bucket.
 

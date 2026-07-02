@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Period-over-Period Comparisons (MoM, YoY, DoD) -->
-<!-- Source: sql_patterns.md lines 5195–5448 -->
+<!-- sql-patterns: Period-over-Period Comparisons (MoM, YoY, DoD) -->
 
-## 10. Period-over-Period Comparisons (MoM, YoY, DoD)
+# Period-over-Period Comparisons (MoM, YoY, DoD)
 
-### What it solves
+## What it solves
 
 Compare a metric in the current period to the same metric in a prior period (previous month, previous year, previous day).
 
-### Keywords to spot
+## Keywords to spot
 
 > "month-over-month", "year-over-year", "compared to last month",
 > "growth rate", "change from previous period", "same period last year",
@@ -15,7 +14,7 @@ Compare a metric in the current period to the same metric in a prior period (pre
 > "quarter-over-quarter", "QoQ", "vs prior week", "same day last year",
 > "like-for-like", "comp growth", "baseline comparison", "variance to prior period"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Monthly trading volume growth (investor KPI); daily transaction count vs prior day (ops monitoring); fee revenue YoY per product line (annual business review)
 - **E-commerce:** MoM revenue growth per category; YoY GMV comparison by quarter (earnings report); same-week-last-year order volume to account for seasonality
@@ -23,7 +22,7 @@ Compare a metric in the current period to the same metric in a prior period (pre
 - **Retail:** Same-store (like-for-like) sales YoY; weekly basket size DoD comparison during promotional events; comp sales excluding new store openings
 - **Marketing:** WoW click-through rate change per campaign; MoM cost-per-acquisition trend; YoY brand search volume comparison
 
-### Boilerplate — LAG approach
+## Boilerplate — LAG approach
 
 -- ANSI SQL approach: Extract year/month for grouping (most portable)
 WITH monthly_volume AS (
@@ -103,7 +102,7 @@ FROM monthly_volume_my;
 
 -- YoY: use LAG with offset = 12 (months) - works with all three approaches above
 
-### Boilerplate — Self-join approach (more explicit)
+## Boilerplate — Self-join approach (more explicit)
 
 -- ANSI SQL approach: Use year/month arithmetic
 SELECT
@@ -155,7 +154,7 @@ LEFT JOIN monthly_volume prev
     ON  curr.trading_pair = prev.trading_pair
     AND curr.month = DATE_ADD(prev.month, INTERVAL 1 MONTH);
 
-### Gotchas
+## Gotchas
 
 - **Always use `NULLIF(denominator, 0)` to avoid division by zero**
   
@@ -216,9 +215,9 @@ LEFT JOIN monthly_volume prev
   4. Consider creating database-specific views or functions to abstract the differences
 
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 10-A: Missing months create misleading LAG comparisons
+### Edge 10-A: Missing months create misleading LAG comparisons
 
 **Problem:**
 
@@ -304,13 +303,13 @@ ORDER BY cur.fiscal_year, cur.fiscal_period;
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 MoM growth via LAG on a full monthly revenue CTE: the CTE itself requires a full-table GROUP BY scan. At 800M rows, the GROUP BY scans all data. For a 3-year history (36 months), this is acceptable if partitions are used. The real problem is **when analysts run ad-hoc period comparisons without partition filters** — triggering full 800M row scans for a query that just needs 2 months of data.
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 -- BEFORE: ad-hoc MoM on full transaction history
@@ -351,7 +350,7 @@ LEFT JOIN monthly_metrics py
     ON cur.month = py.month + INTERVAL '1 year';   -- self-join on 36 rows: trivially fast
 ```
 
-#### System-Level Fix
+### System-Level Fix
 
 
 ---

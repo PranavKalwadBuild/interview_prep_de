@@ -1,3 +1,5 @@
+<!-- python-patterns: Date and Time Handling in Python (for Data Engineering) -->
+
 # Date and Time Handling in Python (for Data Engineering)
 
 ## Overview

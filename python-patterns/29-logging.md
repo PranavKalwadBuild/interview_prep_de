@@ -1,3 +1,5 @@
+<!-- python-patterns: Logging in Python -->
+
 # Logging in Python
 
 ## Why Logging Matters

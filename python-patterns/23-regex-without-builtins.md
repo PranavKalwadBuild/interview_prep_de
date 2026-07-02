@@ -1,3 +1,5 @@
+<!-- python-patterns: Regex Construction Without Built-in Libraries -->
+
 # Regex Construction Without Built-in Libraries
 
 ## Overview

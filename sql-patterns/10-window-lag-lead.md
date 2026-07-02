@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Window Functions — LAG and LEAD -->
-<!-- Source: sql_patterns.md lines 2250–2581 -->
+<!-- sql-patterns: Window Functions — LAG and LEAD -->
 
-## 2. Window Functions — LAG / LEAD
+# Window Functions — LAG / LEAD
 
-### What it solves
+## What it solves
 
 Access the value of a previous (`LAG`) or next (`LEAD`) row within an ordered partition — without a self-join.
 
-### Keywords to spot
+## Keywords to spot
 
 > "previous", "next", "compared to last", "change from prior", "consecutive",
 > "difference between successive", "previous order", "prior period",
@@ -16,7 +15,7 @@ Access the value of a previous (`LAG`) or next (`LEAD`) row within an ordered pa
 > "gap between", "time since last", "days between", "value before current",
 > "what happened just before", "how long since", "preceding event"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Detect sudden spike in trade volume vs previous trade; price drop > 5% from prior close; flag an account where today's withdrawal is 10× yesterday's — potential fraud signal
 - **E-commerce:** Time between a customer's consecutive orders (repurchase cadence); detect cart abandonment by finding sessions where a user viewed checkout but never returned; days between first and second purchase
@@ -26,7 +25,7 @@ Access the value of a previous (`LAG`) or next (`LEAD`) row within an ordered pa
 - **Subscription/Telecom:** Identify a subscriber whose data usage jumped 5× vs prior billing cycle; flag accounts with sudden plan downgrade followed by immediate cancellation
 - **Gaming:** Time between login sessions; identify players whose session frequency drops (early churn predictor)
 
-### Boilerplate
+## Boilerplate
 
 ```sql
 -- Pattern: Compare current row to previous row
@@ -69,15 +68,15 @@ SELECT * FROM lagged
 WHERE prev_event IS NULL;  -- first event per user
 ```
 
-### Gotchas
+## Gotchas
 
 - `LAG(col, 1, default)` — third argument is the default when there is no previous row. Use `0` or `NULL` depending on your logic.
 - LAG/LEAD do NOT skip NULLs by default in most SQL dialects
 - Always specify both `PARTITION BY` and `ORDER BY` — without ORDER BY the result is undefined
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 2-A: LAG offset larger than partition size
+### Edge 2-A: LAG offset larger than partition size
 
 **Problem:**
 
@@ -106,7 +105,7 @@ ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY txn_date) AS txn_seq
 -- If txn_seq >= 4 AND amount_3_txns_ago IS NULL → prior value was genuinely NULL
 ```
 
-#### Edge 2-B: LAG propagating NULL from the prior row
+### Edge 2-B: LAG propagating NULL from the prior row
 
 **Problem:**
 
@@ -144,7 +143,7 @@ LAG(amount, 1, -999) OVER (...)   -- -999 means "first row in partition"
 -- row 3: prev_amount = NULL (prior row had NULL amount — data issue)
 ```
 
-#### Edge 2-C: MoM growth rate breaks for the first period
+### Edge 2-C: MoM growth rate breaks for the first period
 
 **Problem:**
 
@@ -176,7 +175,7 @@ CASE
 END AS mom_pct
 ```
 
-#### Edge 2-D: LAG skipping NULLs — engine support is inconsistent
+### Edge 2-D: LAG skipping NULLs — engine support is inconsistent
 
 **Problem:**
 

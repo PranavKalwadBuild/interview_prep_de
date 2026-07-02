@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 02 — Partitioned Data with Skew -->
+
 # Scenario 02 — Partitioned Data with Skew
 
 ## The Problem Statement

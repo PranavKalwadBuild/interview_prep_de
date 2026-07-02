@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Gap and Islands Pattern -->
-<!-- Source: sql_patterns.md lines 3749–4107 -->
+<!-- sql-patterns: Gap and Islands Pattern -->
 
-## 5. Gap and Islands
+# Gap and Islands
 
-### What it solves
+## What it solves
 
 Identify **consecutive sequences** (islands) of rows that share a property, separated by breaks (gaps). The classic multi-step SQL pattern for sequence analysis.
 
-### Keywords to spot
+## Keywords to spot
 
 > "consecutive", "sequence", "streak", "uninterrupted", "continuous",
 > "how long", "run of", "chain of", "group of successive",
@@ -15,7 +14,7 @@ Identify **consecutive sequences** (islands) of rows that share a property, sepa
 > "without interruption", "break in", "contiguous", "back-to-back",
 > "sustained", "ongoing", "continuous run", "escalating", "monotonically"
 
-### Business Context
+## Business Context
 
 - **Fintech:** Users with 5+ consecutive trading days (engagement badge); detect escalating buy order sequences (potential market manipulation signal); consecutive days a user's portfolio was in the red
 - **E-commerce:** Customers who purchased on 7+ consecutive days; identify sales streaks per product to time inventory replenishment; consecutive days a discount code was applied
@@ -24,14 +23,14 @@ Identify **consecutive sequences** (islands) of rows that share a property, sepa
 - **Sports/Gaming:** Win/loss streaks; consecutive days of app engagement; unbroken daily quest completion runs
 - **Subscription/Media:** Consecutive months a customer renewed without downgrading; uninterrupted binge-watching sessions across days
 
-### Core Idea
+## Core Idea
 
 1. Order rows per group by time
 2. Flag each row where the sequence **breaks** (`is_break = 1`)
 3. `SUM(is_break) OVER (ORDER BY ...)` creates a monotonically incrementing group ID
 4. Group by that ID and filter for length
 
-### Boilerplate — Value-based sequence (escalation)
+## Boilerplate — Value-based sequence (escalation)
 
 ```sql
 -- Business: detect 3+ consecutive BUY trades with 10% escalation per trade
@@ -81,7 +80,7 @@ GROUP BY user_id, trading_pair, seq_group_id
 HAVING COUNT(*) >= 3;
 ```
 
-### Boilerplate — Date-based streak (consecutive active days)
+## Boilerplate — Date-based streak (consecutive active days)
 
 ```sql
 -- Business: users with 5+ consecutive trading days
@@ -126,14 +125,14 @@ GROUP BY user_id, streak_id
 HAVING COUNT(*) >= 5;
 ```
 
-### Gotchas
+## Gotchas
 
 - Always `DISTINCT` dates first if a user can have multiple events on the same day — otherwise same-day events count as separate rows and inflate streak count
 - The `is_break` for the first row of each partition will always be 1 (prev is NULL) — this correctly starts `seq_group_id` at 1
 
-### Edge Cases
+## Edge Cases
 
-#### Edge 5-A: Duplicate dates within the same partition break the streak logic
+### Edge 5-A: Duplicate dates within the same partition break the streak logic
 
 **Problem:**
 
@@ -167,7 +166,7 @@ WITH daily AS (
 ...
 ```
 
-#### Edge 5-B: Single-row partitions — trivially one island
+### Edge 5-B: Single-row partitions — trivially one island
 
 **Problem:**
 
@@ -205,7 +204,7 @@ FROM islands;
 -- Consumers can filter out single-day streaks with: WHERE streak_length > 1
 ```
 
-#### Edge 5-C: Large time gaps create unexpected very long "islands" in value-based detection
+### Edge 5-C: Large time gaps create unexpected very long "islands" in value-based detection
 
 **Problem:**
 
@@ -270,9 +269,9 @@ HAVING COUNT(*) >= 3;  -- flag users with 3+ consecutive escalating trades withi
 
 ---
 
-### At Scale
+## At Scale
 
-#### Failure Mechanism
+### Failure Mechanism
 
 ```
 Step 1: DISTINCT on 800M login_events → 400M unique (user_id, date) pairs
@@ -283,7 +282,7 @@ Total: 2 full shuffles on hundreds of millions of rows + sort
 
 Additionally: **result set cardinality is high** — could still be tens of millions of island rows.
 
-#### Code-Level Fix
+### Code-Level Fix
 
 ```sql
 -- BEFORE: runs on all history
@@ -320,7 +319,7 @@ VALUES (t.user_id, CURRENT_DATE, CURRENT_DATE, 1);
 -- Gap-and-island on weekly bitmasks is 52× cheaper than daily row-level analysis
 ```
 
-#### System-Level Fix
+### System-Level Fix
 
 
 ---

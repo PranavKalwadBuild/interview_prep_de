@@ -1,3 +1,5 @@
+<!-- nosql-patterns: NoSQL — Redis Deep Dive + Ingestion Patterns from NoSQL Sources -->
+
 # NoSQL — Redis Deep Dive + Ingestion Patterns from NoSQL Sources
 
 ## Redis

@@ -1,13 +1,12 @@
-<!-- Part of sql-patterns: Performance and Query Optimisation Patterns -->
-<!-- Source: sql_patterns.md lines 10797–10876 -->
+<!-- sql-patterns: Performance and Query Optimisation Patterns -->
 
-## 30. Performance & Query Optimisation Patterns
+# Performance & Query Optimisation Patterns
 
-### What it solves
+## What it solves
 
 Write queries that run faster and cheaper — critical in DE interviews when asked "how would you optimise this?"
 
-### Keywords to spot
+## Keywords to spot
 
 > "optimise", "slow query", "reduce cost", "partition pruning",
 > "avoid full scan", "index", "skew", "large table join",
@@ -15,7 +14,7 @@ Write queries that run faster and cheaper — critical in DE interviews when ask
 > "data skew", "hot partition", "broadcast join", "execution plan",
 > "query cost", "FinOps", "bytes scanned", "improve performance"
 
-### Key Principles & Patterns
+## Key Principles & Patterns
 
 ```sql
 -- 1. FILTER EARLY: push WHERE conditions to CTEs/subqueries before joining

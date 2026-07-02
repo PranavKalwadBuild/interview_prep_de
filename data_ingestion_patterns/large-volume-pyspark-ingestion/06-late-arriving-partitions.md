@@ -1,3 +1,5 @@
+<!-- data-ingestion-patterns: Scenario 06 — Late-Arriving Partitions and Idempotent Re-runs -->
+
 # Scenario 06 — Late-Arriving Partitions and Idempotent Re-runs
 
 ## The Problem Statement

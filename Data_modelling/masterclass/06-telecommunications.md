@@ -1,6 +1,8 @@
-## 6. Telecommunications
+<!-- data-modelling-patterns: Telecommunications -->
 
-### When to Use This Design
+# Telecommunications
+
+## When to Use This Design
 
 Telecom analytics operates at an intersection of high-volume operational data and complex customer/network relationships. Business questions:
 
@@ -11,9 +13,9 @@ Telecom analytics operates at an intersection of high-volume operational data an
 
 The domain-defining artifact is the **Call Detail Record (CDR)** — a structured log of every call, SMS, and data session. At a carrier with 10M subscribers, CDR volume is 5–20 billion records per month. The modeling decisions made here directly determine whether operational and analytical queries are tenable.
 
-### The Schema
+## The Schema
 
-#### Call Detail Records (CDRs)
+### Call Detail Records (CDRs)
 
 ```sql
 CREATE TABLE fact_cdr (
@@ -47,7 +49,7 @@ CLUSTER BY (calling_subscriber_key, call_type, originating_tower_key);
 
 **Why partition by both date and hour?** At 5B CDRs/month, daily partitions still contain 160M rows. A single-day query for network performance analysis ("drop rate by tower in the last 4 hours") would scan 160M rows. Hour-level sub-partitioning reduces scan to ~7M rows. The tradeoff is more partition metadata and potentially small files in object storage. In BigQuery, hourly partitioning within date ranges is handled natively. In Snowflake, a clustering key of `(event_date_key, event_hour)` achieves similar pruning via micro-partition metadata.
 
-#### Subscriber Lifecycle with SCD Type 2
+### Subscriber Lifecycle with SCD Type 2
 
 ```sql
 CREATE TABLE dim_subscriber (
@@ -73,7 +75,7 @@ PARTITION BY (eff_start_date)
 CLUSTER BY (account_type, customer_segment);
 ```
 
-#### Service Plan Modeling
+### Service Plan Modeling
 
 Plans change frequently — promotional pricing, regulatory-mandated changes, new offerings. The plan history must be preserved to correctly rate historical CDRs.
 
@@ -111,7 +113,7 @@ CREATE TABLE fact_subscriber_plan_history (
 CLUSTER BY (subscriber_key, plan_key);
 ```
 
-#### Network Topology (Graph-Like Hierarchy)
+### Network Topology (Graph-Like Hierarchy)
 
 Network topology is a directed graph: a subscriber connects to a cell sector, which belongs to a cell tower, which belongs to a cluster, which belongs to a market, which belongs to a region. This hierarchy is relatively stable but changes for network expansion events.
 
@@ -138,7 +140,7 @@ CREATE TABLE dim_network_node (
 CLUSTER BY (node_type, parent_node_id);
 ```
 
-#### Churn Prediction Data Structures
+### Churn Prediction Data Structures
 
 Churn prediction in telecom requires a feature store that captures behavioral signals over rolling time windows. The model must be designed to support feature engineering at scale:
 
@@ -176,7 +178,7 @@ PARTITION BY (summary_month_key)
 CLUSTER BY (subscriber_key, plan_key);
 ```
 
-### The Hard Problems
+## The Hard Problems
 
 **Streaming CDR Ingestion**: CDRs arrive from multiple network elements (MSCs, packet gateways, IMS nodes) in near-real-time. The pipeline challenge is that CDRs from different sources arrive with different latencies — a voice CDR from the MSC may arrive in seconds; a roaming data session CDR from an international partner may arrive in hours or days. The warehouse must accommodate late-arriving CDRs without corrupting existing aggregates.
 
@@ -193,7 +195,7 @@ The ELT job runs hourly: it picks up all CDRs received in the last hour and inse
 
 The NOC dashboard queries the time-series DB. Business analysts query the warehouse. Never ask the analytical warehouse to serve sub-minute operational queries.
 
-### Scale Mechanics
+## Scale Mechanics
 
 | Table | Rows/Month (10M subscribers) | Partition | Cluster | Incremental Strategy |
 |-------|------------------------------|-----------|---------|---------------------|

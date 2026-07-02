@@ -1,15 +1,14 @@
-<!-- Part of sql-patterns: NULL Deep Dive — In JOINs, Aggregate Functions, and Window Functions -->
-<!-- Source: sql_patterns.md lines 11137–11471 -->
+<!-- sql-patterns: NULL Deep Dive — In JOINs, Aggregate Functions, and Window Functions -->
 
-## 32. NULL Handling — Pattern-by-Pattern Deep Dive
+# NULL Handling — Pattern-by-Pattern Deep Dive
 
 This section dissects how NULL behaves inside every major SQL pattern. Each subsection gives you the trap, why it happens at the engine level, and the correct fix — all grounded in real fintech scenarios.
 
 ---
 
-### 32-A. NULL in JOINs
+## 32-A. NULL in JOINs
 
-#### LEFT JOIN produces NULLs — and that is the point
+### LEFT JOIN produces NULLs — and that is the point
 
 When a LEFT JOIN finds no matching row on the right side, **every column from the right table becomes NULL** for that row. This is how LEFT JOIN works. The danger is filtering those NULLs away accidentally.
 
@@ -36,7 +35,7 @@ LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.repaid_amount > 0;
 WHERE r.repaid_amount > 0 OR r.repaid_amount IS NULL;
 ```
 
-#### NULL in the JOIN key itself
+### NULL in the JOIN key itself
 
 If the JOIN key column contains NULL, **rows with NULL keys never join** — NULL = NULL is UNKNOWN.
 
@@ -60,7 +59,7 @@ FROM transactions t
 LEFT JOIN merchants m ON t.merchant_id = m.merchant_id;
 ```
 
-#### FULL OUTER JOIN — NULLs on both sides
+### FULL OUTER JOIN — NULLs on both sides
 
 ```sql
 -- Reconcile expected disbursements vs actual disbursements for the day
@@ -160,9 +159,9 @@ SELECT
 FROM upi_transactions;
 ---
 
-### 32-C. NULL in Window Functions
+## 32-C. NULL in Window Functions
 
-#### Ranking (ROW_NUMBER, RANK, DENSE_RANK) — NULL in ORDER BY
+### Ranking (ROW_NUMBER, RANK, DENSE_RANK) — NULL in ORDER BY
 
 ```sql
 -- When ORDER BY column has NULLs, NULL position depends on NULLS FIRST/LAST
@@ -194,7 +193,7 @@ WITH ranked AS (
 SELECT * FROM ranked WHERE rn = 1;
 ```
 
-#### LAG / LEAD — NULL at partition boundaries and NULL default
+### LAG / LEAD — NULL at partition boundaries and NULL default
 
 ```sql
 -- LAG returns NULL for the first row of each partition (no previous row)
@@ -236,7 +235,7 @@ SELECT
 FROM monthly;
 ```
 
-#### FIRST_VALUE / LAST_VALUE with IGNORE NULLS
+### FIRST_VALUE / LAST_VALUE with IGNORE NULLS
 
 Some columns have sparse values — only populated for certain events (e.g., credit tier assigned only at KYC approval, NULL otherwise). IGNORE NULLS lets you carry forward the last known non-NULL value.
 
@@ -289,7 +288,7 @@ FROM (
 ) t;
 ```
 
-#### Running Aggregates — NULL in SUM / AVG
+### Running Aggregates — NULL in SUM / AVG
 
 ```sql
 -- Running total with NULL gaps

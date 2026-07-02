@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: NULL Deep Dive — Conditional Aggregation, Set Operations, String Agg, Recursive CTEs, Date Spine, Funnel, Data Quality -->
-<!-- Source: sql_patterns.md lines 11755–12065 -->
+<!-- sql-patterns: NULL Deep Dive — Conditional Aggregation, Set Operations, String Agg, Recursive CTEs, Date Spine, Funnel, Data Quality -->
 
-### 32-I. NULL in Conditional Aggregation / CASE WHEN
+# 32-I. NULL in Conditional Aggregation / CASE WHEN
 
 ```sql
 -- CASE WHEN with NULL conditions
@@ -69,7 +68,7 @@ SELECT NULL INTERSECT SELECT NULL;
 -- Result: one row with NULL (NULL intersects with NULL — treated as equal)
 ---
 
-### 32-K. NULL in String Aggregation
+# 32-K. NULL in String Aggregation
 
 ```sql
 SELECT
@@ -144,7 +143,7 @@ WITH RECURSIVE referral_chain AS (
 SELECT * FROM referral_chain;
 ---
 
-### 32-M. NULL in Date Spine / Forward-Fill
+# 32-M. NULL in Date Spine / Forward-Fill
 
 ```sql
 -- Date spine joined to sparse event data — NULLs appear on no-event days
@@ -222,7 +221,7 @@ SELECT
 FROM loan_applications;
 ---
 
-### 32-O. NULL in Data Quality Checks
+# 32-O. NULL in Data Quality Checks
 
 ```sql
 -- Comprehensive NULL audit — essential for every new data source

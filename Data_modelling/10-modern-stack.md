@@ -1,6 +1,6 @@
-<!-- Part of data-modelling-patterns: Modern Stack — Medallion Architecture, OBT, Data Vault 2.0 -->
+<!-- data-modelling-patterns: Modern Stack — Medallion Architecture, OBT, Data Vault 2.0 -->
 
-# Part 4 — Modern Stack Patterns
+# Modern Stack Patterns
 
 ---
 

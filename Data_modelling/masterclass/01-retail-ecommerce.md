@@ -1,6 +1,8 @@
-## 1. Retail / E-Commerce
+<!-- data-modelling-patterns: Retail / E-Commerce -->
 
-### When to Use This Design
+# Retail / E-Commerce
+
+## When to Use This Design
 
 The retail domain is driven by a handful of high-stakes business questions:
 
@@ -11,9 +13,9 @@ The retail domain is driven by a handful of high-stakes business questions:
 
 Each question maps to a specific modeling choice. The margin question requires a clean fact table with order lines joined to a product hierarchy that does not change shape over time. The inventory question needs a current-state model — probably not a star schema at all. The price change question requires slowly changing dimension handling that captures effective dates. Failing to separate these concerns produces a model that answers no question cleanly.
 
-### The Schema
+## The Schema
 
-#### Product Catalog with Variants and Hierarchy
+### Product Catalog with Variants and Hierarchy
 
 A common mistake is collapsing the product hierarchy into a single wide dimension. The hierarchy — department > category > subcategory > product > SKU/variant — has different change rates at each level. Department names almost never change. SKU attributes (color, size) may be updated regularly. A single `dim_product` with all hierarchy columns embedded will have SCD Type 2 row explosions at the SKU level contaminating the parent hierarchy.
 
@@ -73,7 +75,7 @@ PARTITION BY (eff_start_date);
 
 Why separate product from SKU? A product (style) may have 30 color/size combinations. If a single color is discontinued, only that SKU row changes — you do not want 29 new SCD Type 2 rows for unchanged variants. The separation also matches how most source systems (SAP, Shopify, Magento) organize their data.
 
-#### Order Management
+### Order Management
 
 Order management has two grains that analysts conflate: the order header and the order line. The header captures checkout-level facts (total discount, promo code applied, shipping address). The line captures item-level facts (quantity, unit price, line discount). Combining them into one table is the God Fact anti-pattern applied to transactional data.
 
@@ -132,7 +134,7 @@ CLUSTER BY (sku_key, product_key);
 
 Why `order_date_key` as INT (YYYYMMDD) rather than DATE? In columnar warehouses (Snowflake, BigQuery, Redshift), the date dimension join is typically the most-used filter. Storing as INT avoids implicit casts in the join predicate and enables partition pruning expressions like `WHERE order_date_key BETWEEN 20241129 AND 20241201` to be written without CAST overhead.
 
-#### Pricing Dimension (Slowly Changing)
+### Pricing Dimension (Slowly Changing)
 
 Prices change frequently — promotional windows, cost-plus recalculations, competitive repricing. If you embed `unit_price` only in the fact, you lose the ability to ask "what was the listed price at the time of this order vs what we charged?" This requires the price history to be a first-class dimension.
 
@@ -172,7 +174,7 @@ JOIN dim_price p
 
 This range join is expensive at scale. The mitigation strategy is to denormalize `list_price_at_order_time` into the fact at load time and only use the range join during the nightly ETL — not at query time.
 
-#### Promotions and Pricing
+### Promotions and Pricing
 
 Promotions are fundamentally multi-dimensional: a promo can apply to a set of SKUs, a customer segment, a date range, a channel, or combinations thereof. The naive design is a single `dim_promotion` table with comma-separated SKU lists or flag columns like `is_electronics_eligible`. This collapses at scale and makes "which promotions could a given SKU qualify for?" an impossible query without full-table scans.
 
@@ -209,7 +211,7 @@ CREATE TABLE bridge_promo_customer_segment (
 
 The bridge tables enable set-intersection queries: "show all SKUs eligible for active promotions in the Electronics category where the customer is a loyalty member." Without the bridges, this is a string-parsing nightmare.
 
-#### Inventory Positions
+### Inventory Positions
 
 Inventory is a snapshot fact — it represents a state at a point in time, not an event. The two most common mistakes are: (1) trying to derive current inventory from order transactions alone (ignoring receiving, adjustments, transfers, returns), and (2) storing inventory as a single row updated in place (which destroys history).
 
@@ -252,7 +254,7 @@ CLUSTER BY (sku_key, warehouse_key, movement_type);
 
 The snapshot fact enables fast "what is inventory right now?" queries with no aggregation. The movement fact enables "how did I get from 500 units to 200 units?" audits. Both are needed. Attempting to use only movements requires summing the entire movement history for every current-inventory question — catastrophically slow at 1B rows.
 
-#### Customer 360
+### Customer 360
 
 Customer 360 is a misnomer when it becomes a single wide table. At 200+ columns it becomes ungovernable. The correct design is a core identity dimension with satellite tables for specific domains:
 
@@ -282,13 +284,13 @@ PARTITION BY (eff_start_date)
 CLUSTER BY (loyalty_tier, acquisition_channel);
 ```
 
-### The Hard Problems
+## The Hard Problems
 
 **Black Friday Spike Patterns**: Partitioning by `order_date_key` means November 29 becomes a hot partition. In BigQuery, this is handled naturally by partition pruning — queries specifying Black Friday dates only scan that partition. In Snowflake, micro-partition clustering on `channel` within the date partition prevents full-partition scans when analysts filter by `channel = 'WEB'`. The monitoring concern is that large single-day ingestion jobs (ELT pipelines running after midnight) may compete with analyst queries. Solving this requires a processing time watermark: ETL writes to a staging table, then does an atomic swap after validation.
 
 **Late-Arriving Orders**: Orders placed on mobile apps can be buffered offline and arrive in the warehouse hours or days after the order event timestamp. If your partition key is `dw_inserted_at` (load time) rather than `order_placed_at` (event time), late-arriving orders land in the correct partition but the `order_placed_at` value will be in a "past" partition bucket — causing double-counting when analysts filter by `order_placed_at` ranges. The solution is to partition by `DATE(order_placed_at)` and accept that late-arriving data requires `MERGE` or delete+reinsert into past partitions.
 
-### Scale Mechanics
+## Scale Mechanics
 
 | Volume | Primary Strategy |
 |--------|-----------------|

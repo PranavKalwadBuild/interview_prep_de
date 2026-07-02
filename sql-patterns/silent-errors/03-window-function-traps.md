@@ -1,4 +1,4 @@
-<!-- Part of sql-patterns: Silent Errors — Window Function Traps -->
+<!-- sql-patterns: Silent Errors — Window Function Traps -->
 
 # Silent Errors — Window Function Traps
 

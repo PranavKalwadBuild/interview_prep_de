@@ -1,7 +1,6 @@
-<!-- Part of sql-patterns: NULL Deep Dive — Anti-Joins, Gap/Island, Deduplication, SCD Type 2, Period-over-Period -->
-<!-- Source: sql_patterns.md lines 11472–11754 -->
+<!-- sql-patterns: NULL Deep Dive — Anti-Joins, Gap/Island, Deduplication, SCD Type 2, Period-over-Period -->
 
-### 32-D. NULL in Anti-Joins — The Most Dangerous NULL Trap
+# 32-D. NULL in Anti-Joins — The Most Dangerous NULL Trap
 
 This is the pattern that causes the most silent data bugs in production SQL. Know it cold.
 
@@ -122,9 +121,9 @@ WHERE event_at IS NOT NULL;  -- filter NULL timestamps before session logic
 -- LAG of a NULL = NULL; gap calculation: NULL - NULL = NULL = UNKNOWN → wrong session boundaries
 ---
 
-### 32-F. NULL in Deduplication
+# 32-F. NULL in Deduplication
 
-#### NULL in the dedup key — NULLs never deduplicate each other
+## NULL in the dedup key — NULLs never deduplicate each other
 
 ```sql
 -- Dedup on (txn_id, status) — keep latest record per transaction
@@ -219,7 +218,7 @@ WHERE s.new_tier != d.credit_tier  -- if either is NULL → UNKNOWN → change N
 -- And miss: 'Gold' → NULL (credit line closed)
 ---
 
-### 32-H. NULL in Period-over-Period / LAG
+# 32-H. NULL in Period-over-Period / LAG
 
 ```sql
 -- Monthly revenue with MoM growth

@@ -1,6 +1,6 @@
-<!-- Part of data-modelling-patterns: Quick Reference — Decision Trees, Cheat Sheets, Keywords→Pattern Map -->
+<!-- data-modelling-patterns: Quick Reference — Decision Trees, Cheat Sheets, Keywords→Pattern Map -->
 
-# Part 6 — Quick Reference
+# Quick Reference
 
 ---
 
